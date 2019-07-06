@@ -47,16 +47,15 @@ void R_PerformanceCounters(void)
 		return;
 	}
 
-	if (r_speeds->integer)
+	switch (r_speeds->integer)
 	{
+	case RSPEEDS_GENERAL:
 		Ren_Print("%i/%i shaders/surfs %i leafs %i verts %i/%i tris %.2f mtex %.2f dc\n",
 		          backEnd.pc.c_shaders, backEnd.pc.c_surfaces, tr.pc.c_leafs, backEnd.pc.c_vertexes,
 		          backEnd.pc.c_indexes / 3, backEnd.pc.c_totalIndexes / 3,
 		          R_SumOfUsedImages() / (1000000.0), (double)backEnd.pc.c_overDraw / (double)(glConfig.vidWidth * glConfig.vidHeight));
-	}
-
-	if (r_speeds->integer == 2)
-	{
+		break;
+	case RSPEEDS_CULLING:
 		Ren_Print("(patch) %i sin %i sclip  %i sout %i bin %i bclip %i bout\n",
 		          tr.pc.c_sphere_cull_patch_in, tr.pc.c_sphere_cull_patch_clip, tr.pc.c_sphere_cull_patch_out,
 		          tr.pc.c_box_cull_patch_in, tr.pc.c_box_cull_patch_clip, tr.pc.c_box_cull_patch_out);
@@ -66,26 +65,26 @@ void R_PerformanceCounters(void)
 		Ren_Print("(gen) %i sin %i sout %i pin %i pout\n",
 		          tr.pc.c_sphere_cull_in, tr.pc.c_sphere_cull_out,
 		          tr.pc.c_plane_cull_in, tr.pc.c_plane_cull_out);
-	}
-	else if (r_speeds->integer == 3)
-	{
+		break;
+	case RSPEEDS_VIEWCLUSTER:
 		Ren_Print("viewcluster: %i\n", tr.viewCluster);
-	}
-	else if (r_speeds->integer == 4)
-	{
+		break;
+	case RSPEEDS_LIGHTS:
 		Ren_Print("dlight srf:%i  culled:%i  verts:%i  tris:%i\n",
 		          tr.pc.c_dlightSurfaces, tr.pc.c_dlightSurfacesCulled,
 		          backEnd.pc.c_dlightVertexes, backEnd.pc.c_dlightIndexes / 3);
-	}
-	else if (r_speeds->integer == 6)
-	{
+		break;
+	case RSPEEDS_FLARES:
 		Ren_Print("flare adds:%i tests:%i renders:%i\n",
 		          backEnd.pc.c_flareAdds, backEnd.pc.c_flareTests, backEnd.pc.c_flareRenders);
-	}
-	else if (r_speeds->integer == 7)
-	{
+		break;
+	case RSPEEDS_DECALS:
 		Ren_Print("decal projectors: %d test surfs: %d clip surfs: %d decal surfs: %d created: %d\n",
 		          tr.pc.c_decalProjectors, tr.pc.c_decalTestSurfaces, tr.pc.c_decalClipSurfaces, tr.pc.c_decalSurfaces, tr.pc.c_decalSurfacesCreated);
+		break;
+
+	default:
+		break;
 	}
 
 	Com_Memset(&tr.pc, 0, sizeof(tr.pc));
@@ -449,41 +448,6 @@ void RE_BeginFrame(void)
 	tr.frameCount++;
 	tr.frameSceneNum = 0;
 
-	// do overdraw measurement
-	if (r_measureOverdraw->integer)
-	{
-		if (glConfig.stencilBits < 4)
-		{
-			Ren_Print("Warning: not enough stencil bits to measure overdraw: %d\n", glConfig.stencilBits);
-			ri.Cvar_Set("r_measureOverdraw", "0");
-		}
-		else if (r_shadows->integer == 2)
-		{
-			Ren_Print("Warning: stencil shadows and overdraw measurement are mutually exclusive\n");
-			ri.Cvar_Set("r_measureOverdraw", "0");
-		}
-		else
-		{
-			R_IssuePendingRenderCommands();
-			qglEnable(GL_STENCIL_TEST);
-			qglStencilMask(~0U);
-			qglClearStencil(0U);
-			qglStencilFunc(GL_ALWAYS, 0U, ~0U);
-			qglStencilOp(GL_KEEP, GL_INCR, GL_INCR);
-		}
-		r_measureOverdraw->modified = qfalse;
-	}
-	else
-	{
-		// this is only reached if it was on and is now off
-		if (r_measureOverdraw->modified)
-		{
-			R_IssuePendingRenderCommands();
-			qglDisable(GL_STENCIL_TEST);
-		}
-		r_measureOverdraw->modified = qfalse;
-	}
-
 	// texturemode stuff
 	if (r_textureMode->modified)
 	{
@@ -520,15 +484,7 @@ void RE_BeginFrame(void)
 		return;
 	}
 	cmd->commandId = RC_DRAW_BUFFER;
-
-	if (!Q_stricmp(r_drawBuffer->string, "GL_FRONT"))
-	{
-		cmd->buffer = (int)GL_FRONT;
-	}
-	else
-	{
-		cmd->buffer = (int)GL_BACK;
-	}
+    cmd->buffer = (int)GL_BACK;
 }
 
 /**

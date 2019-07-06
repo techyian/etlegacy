@@ -235,22 +235,6 @@ void R_ImageList_f(void)
 		case 4:
 			Ren_Print("RGBA ");
 			break;
-		case GL_RGBA8:
-			Ren_Print("RGBA8");
-			break;
-		case GL_RGB8:
-			Ren_Print("RGB8");
-			break;
-		case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-			Ren_Print("DXT3 ");
-			break;
-		case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-			Ren_Print("DXT5 ");
-			break;
-		case GL_RGB4_S3TC:
-		case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-			Ren_Print("S3TC ");
-			break;
 		case GL_RGBA4:
 			Ren_Print("RGBA4");
 			break;
@@ -556,104 +540,105 @@ byte mipBlendColors[16][4] =
 	{ 0,   255, 0,   128 },
 	{ 0,   0,   255, 128 },
 };
-// helper function for GLES format conversions
-byte *gles_convertRGB(byte *data, int width, int height)
-{
-	byte *temp = (byte *) ri.Z_Malloc(width * height * 3);
-	byte *src  = data;
-	byte *dst  = temp;
-	int  i, j;
 
-	for (i = 0; i < width * height; i++)
-	{
-		for (j = 0; j < 3; j++)
+// helper function for GLES format conversions
+byte * gles_convertRGB(byte * data, int width, int height)
+{
+	byte * temp = (byte *) ri.Z_Malloc(width*height*3);
+	byte *src = data;
+	byte *dst = temp;
+	int i,j;
+
+	for (i=0; i<width*height; i++) {
+		for (j=0; j<3; j++)
 			*(dst++) = *(src++);
 		src++;
 	}
 
 	return temp;
 }
-byte *gles_convertRGBA4(byte *data, int width, int height)
+byte *  gles_convertRGBA4(byte * data, int width, int height)
 {
-	byte *temp = (byte *) ri.Z_Malloc(width * height * 2);
-	int  i;
+	byte * temp = (byte *) ri.Z_Malloc(width*height*2);
+	int i;
 
-	unsigned int   *input  = ( unsigned int *)(data);
-	unsigned short *output = (unsigned short *)(temp);
-	for (i = 0; i < width * height; i++)
-	{
-		unsigned int pixel = *(input++);
+	unsigned int * input = ( unsigned int *)(data);
+	unsigned short* output = (unsigned short*)(temp);
+
+	for (i = 0; i < width*height; i++) {
+		unsigned int pixel = input[i];
+
 		// Unpack the source data as 8 bit values
 		unsigned int r = pixel & 0xff;
 		unsigned int g = (pixel >> 8) & 0xff;
 		unsigned int b = (pixel >> 16) & 0xff;
 		unsigned int a = (pixel >> 24) & 0xff;
+
 		// Convert to 4 bit vales
-		r         >>= 4; g >>= 4; b >>= 4; a >>= 4;
-		*(output++) = r << 12 | g << 8 | b << 4 | a;
+		r >>= 4; g >>= 4; b >>= 4; a >>= 4;
+		output[i] = r << 12 | g << 8 | b << 4 | a;
 	}
+
 	return temp;
 }
-byte *gles_convertRGB5(byte *data, int width, int height)
+byte * gles_convertRGB5(byte * data, int width, int height)
 {
-	byte *temp = (byte *) ri.Z_Malloc(width * height * 2);
-	byte *src  = data;
-	byte *dst  = temp;
-	byte r, g, b;
-	int  i;
+	byte * temp = (byte *) ri.Z_Malloc(width*height*2);
+	int i;
 
-	unsigned int   *input  = ( unsigned int *)(data);
-	unsigned short *output = (unsigned short *)(temp);
-	for (i = 0; i < width * height; i++)
-	{
-		unsigned int pixel = *(input++);
+	unsigned int * input = ( unsigned int *)(data);
+	unsigned short* output = (unsigned short*)(temp);
+
+	for (i = 0; i < width*height; i++) {
+		unsigned int pixel = input[i];
+
 		// Unpack the source data as 8 bit values
 		unsigned int r = pixel & 0xff;
 		unsigned int g = (pixel >> 8) & 0xff;
 		unsigned int b = (pixel >> 16) & 0xff;
+
 		// Convert to 4 bit vales
-		r         >>= 3; g >>= 2; b >>= 3;
-		*(output++) = r << 11 | g << 5 | b;
+		r >>= 3; g >>= 2; b >>= 3;
+		output[i] = r << 11 | g << 5 | b;
 	}
+
 	return temp;
 }
-byte *gles_convertLuminance(byte *data, int width, int height)
+byte * gles_convertLuminance(byte * data, int width, int height)
 {
-	byte *temp = (byte *) ri.Z_Malloc(width * height);
-	byte *src  = data;
-	byte *dst  = temp;
-	byte r, g, b;
-	int  i;
+	byte * temp = (byte *) ri.Z_Malloc(width*height);
+	int i;
 
-	unsigned int *input  = ( unsigned int *)(data);
-	byte         *output = (byte *)(temp);
-	for (i = 0; i < width * height; i++)
-	{
+	unsigned int * input = ( unsigned int *)(data);
+	byte* output = (byte*)(temp);
+
+	for (i = 0; i < width*height; i++) {
 		unsigned int pixel = input[i];
+
 		// Unpack the source data as 8 bit values
 		unsigned int r = pixel & 0xff;
 		output[i] = r;
 	}
+
 	return temp;
 }
-byte *gles_convertLuminanceAlpha(byte *data, int width, int height)
+byte * gles_convertLuminanceAlpha(byte * data, int width, int height)
 {
-	byte *temp = (byte *) ri.Z_Malloc(width * height * 2);
-	byte *src  = data;
-	byte *dst  = temp;
-	byte r, g, b;
-	int  i;
+	byte * temp = (byte *) ri.Z_Malloc(width*height*2);
+	int i;
 
-	unsigned int   *input  = ( unsigned int *)(data);
-	unsigned short *output = (unsigned short *)(temp);
-	for (i = 0; i < width * height; i++)
-	{
+	unsigned int * input = ( unsigned int *)(data);
+	unsigned short* output = (unsigned short*)(temp);
+
+	for (i = 0; i < width*height; i++) {
 		unsigned int pixel = input[i];
+
 		// Unpack the source data as 8 bit values
 		unsigned int r = pixel & 0xff;
 		unsigned int a = (pixel >> 24) & 0xff;
-		output[i] = r | a << 8;
+		output[i] = r | a<<8;
 	}
+
 	return temp;
 }
 
@@ -782,19 +767,22 @@ static void Upload32(unsigned *data,
 			}
 		}
 		// select proper internal format
-		if (samples == 3)
+        if (samples == 3)
 		{
 			if (r_greyScale->integer)
 			{
 				internalFormat = GL_LUMINANCE;
 			}
-			else if (r_textureBits->integer == 16)
-			{
-				internalFormat = GL_RGB5;
-			}
 			else
 			{
-				internalFormat = GL_RGB;
+                if (r_textureBits->integer == 16)
+                {
+                    internalFormat = GL_RGB5;
+                }
+                else
+                {
+                    internalFormat = GL_RGB;
+                }
 			}
 		}
 		else if (samples == 4)
@@ -803,95 +791,88 @@ static void Upload32(unsigned *data,
 			{
 				internalFormat = GL_LUMINANCE_ALPHA;
 			}
-			else if (r_textureBits->integer == 16)
-			{
-				internalFormat = GL_RGBA4;
-			}
 			else
 			{
-				internalFormat = GL_RGBA;
+			    if (r_textureBits->integer == 16)
+                {
+                    internalFormat = GL_RGBA4;
+                }
+                else
+                {
+                    internalFormat = GL_RGBA;
+                }
 			}
 		}
 	}
 
-	//*pformat = GL_RGBA;
-	if ((scaled_width == width) &&
-	    (scaled_height == height))
-	{
-		Com_Memcpy(scaledBuffer, data, width * height * 4);
-	}
-	else
-	{
-		// use the normal mip-mapping function to go down from here
-		while (width > scaled_width || height > scaled_height)
-		{
-			R_MipMap((byte *)data, width, height);
-			width  >>= 1;
-			height >>= 1;
-			if (width < 1)
-			{
-				width = 1;
-			}
-			if (height < 1)
-			{
-				height = 1;
-			}
-		}
-		Com_Memcpy(scaledBuffer, data, width * height * 4);
-	}
-	R_LightScaleTexture(scaledBuffer, scaled_width, scaled_height, !mipmap);
+    if ( ( scaled_width == width ) &&
+        ( scaled_height == height ) ) {
+        Com_Memcpy (scaledBuffer, data, width*height*4);
+    }
+    else
+    {
+        // use the normal mip-mapping function to go down from here
+        while ( width > scaled_width || height > scaled_height ) {
+            R_MipMap( (byte *)data, width, height );
+            width >>= 1;
+            height >>= 1;
+            if ( width < 1 ) {
+                width = 1;
+            }
+            if ( height < 1 ) {
+                height = 1;
+            }
+        }
+        Com_Memcpy( scaledBuffer, data, width * height * 4 );
+    }
+    R_LightScaleTexture (scaledBuffer, scaled_width, scaled_height, !mipmap );
 
-	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, (mipmap) ? GL_TRUE : GL_FALSE);
+    qglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP, (mipmap)?GL_TRUE:GL_FALSE );
 
-	// and now, convert if needed and upload
-	// GLES doesn't do conversion itself, so we have to handle that
-	byte *temp;
-	switch (internalFormat)
-	{
-	case GL_RGB5:
-		temp = gles_convertRGB5((byte *)scaledBuffer, scaled_width, scaled_height);
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, scaled_width, scaled_height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, temp);
-		ri.Free(temp);
-		break;
-	case GL_RGBA4:
-		temp = gles_convertRGBA4((byte *)scaledBuffer, scaled_width, scaled_height);
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, temp);
-		ri.Free(temp);
-		break;
-	case GL_RGB:
-		temp = gles_convertRGB((byte *)scaledBuffer, scaled_width, scaled_height);
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, scaled_width, scaled_height, 0, GL_RGB, GL_UNSIGNED_BYTE, temp);
-		ri.Free(temp);
-		break;
-	case 1:
-		temp = gles_convertLuminance((byte *)data, width, height);
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, temp);
-		ri.Free(temp);
-		break;
-	case 2:
-		temp = gles_convertLuminanceAlpha((byte *)data, width, height);
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, width, height, 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, temp);
-		ri.Free(temp);
-		break;
-	default:
-		internalFormat = GL_RGBA;
-		qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaledBuffer);
-		break;
-	}
+    // and now, convert if needed and upload
+    // GLES doesn't do convertion itself, so we have to handle that
+    byte *temp;
+    switch ( internalFormat ) {
+     case GL_RGB5:
+        temp = gles_convertRGB5((byte*)scaledBuffer, scaled_width, scaled_height);
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, scaled_width, scaled_height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, temp);
+        ri.Free(temp);
+        break;
+     case GL_RGBA4:
+        temp = gles_convertRGBA4((byte*)scaledBuffer, width, height);
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, temp);
+        ri.Free(temp);
+        break;
+     case GL_RGB:
+        temp = gles_convertRGB((byte*)scaledBuffer, width, height);
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, scaled_width, scaled_height, 0, GL_RGB, GL_UNSIGNED_BYTE, temp);
+        ri.Free(temp);
+        break;
+     case GL_LUMINANCE:
+        temp = gles_convertLuminance((byte*)scaledBuffer, width, height);
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_LUMINANCE, scaled_width, scaled_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, temp);
+        ri.Free(temp);
+        break;
+     case GL_LUMINANCE_ALPHA:
+        temp = gles_convertLuminanceAlpha((byte*)scaledBuffer, width, height);
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, scaled_width, scaled_height, 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, temp);
+        ri.Free(temp);
+        break;
+     default:
+        internalFormat = GL_RGBA;
+        qglTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaledBuffer);
+    }
 
-	*pUploadWidth  = scaled_width;
+	*pUploadWidth = scaled_width;
 	*pUploadHeight = scaled_height;
-	*format        = internalFormat;
-
-	//	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	//	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    *format = internalFormat;
 
 	if (mipmap)
 	{
 		if (textureFilterAnisotropic)
 		{
 			qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT,
-			                 (GLint)Com_Clamp(1, maxAnisotropy, r_ext_max_anisotropy->integer));
+			                 (GLint)Com_Clamp(1, maxAnisotropy, r_extMaxAnisotropy->integer));
 		}
 
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
@@ -1202,7 +1183,7 @@ image_t *R_FindImageFile(const char *name, qboolean mipmap, qboolean allowPicmip
 
 	if (((width - 1) & width) || ((height - 1) & height))
 	{
-		Ren_Developer("WARNING: Image not power of 2 scaled: %s\n", name);
+		Ren_Developer("WARNING: Image not power of 2 scaled: %s (%i:%i)\n", name, width, height);
 		return NULL;
 	}
 
@@ -1307,14 +1288,6 @@ static void R_CreateFogImage(void)
 	// what we want.
 	tr.fogImage = R_CreateImage("*fog", (byte *)data, FOG_S, FOG_T, qfalse, qfalse, GL_CLAMP_TO_EDGE);
 	ri.Hunk_FreeTempMemory(data);
-
-	// FIXME: the following lines are unecessary for new GL_CLAMP_TO_EDGE fog (?)
-	borderColor[0] = 1.0;
-	borderColor[1] = 1.0;
-	borderColor[2] = 1.0;
-	borderColor[3] = 1;
-
-	qglTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 }
 
 #define DEFAULT_SIZE    16
@@ -1493,7 +1466,7 @@ void R_SetColorMappings(void)
 		s_intensitytable[i] = j;
 	}
 
-	if (glConfig.deviceSupportsGamma && !GLEW_ARB_fragment_program)
+    if (glConfig.deviceSupportsGamma)
 	{
 		ri.GLimp_SetGamma(s_gammatable, s_gammatable, s_gammatable);
 	}
@@ -1723,6 +1696,11 @@ qhandle_t RE_GetShaderFromModel(qhandle_t modelid, int surfnum, int withlightmap
 			msurface_t *surf;
 			shader_t   *shd;
 
+			if (bmodel->numSurfaces == 0)
+			{
+				return 0;
+			}
+
 			if (surfnum >= bmodel->numSurfaces)     // if it's out of range, return the first surface
 			{
 				surfnum = 0;
@@ -1773,7 +1751,7 @@ qhandle_t RE_GetShaderFromModel(qhandle_t modelid, int surfnum, int withlightmap
  */
 qhandle_t RE_RegisterSkin(const char *name)
 {
-    skinSurface_t parseSurfaces[MAX_SKIN_SURFACES];
+	skinSurface_t parseSurfaces[MAX_SKIN_SURFACES];
 	qhandle_t     hSkin;
 	skin_t        *skin;
 	skinModel_t   *model;
@@ -1833,7 +1811,7 @@ qhandle_t RE_RegisterSkin(const char *name)
 	// WARNING: HACK: ET evilly has filenames slightly longer than MAX_QPATH
 	// this check breaks the loading of such skins
 	/*
-	if ( strcmp( name + strlen( name ) - 5, ".skin" ) ) {
+	if (strcmp( name + strlen( name ) - 5, ".skin")) {
 	    skin->numSurfaces = 1;
 	    skin->surfaces = ri.Hunk_Alloc( sizeof( skinSurface_t ), h_low );
 	    skin->surfaces[0].shader = R_FindShader( name, LIGHTMAP_NONE, qtrue );
@@ -1907,7 +1885,7 @@ qhandle_t RE_RegisterSkin(const char *name)
 		{
 			surf = &parseSurfaces[skin->numSurfaces];
 			Q_strncpyz(surf->name, surfName, sizeof(surf->name));
-            surf->hash   = Com_HashKey(surf->name, sizeof(surf->name));
+			surf->hash   = Com_HashKey(surf->name, sizeof(surf->name));
 			surf->shader = R_FindShader(token, LIGHTMAP_NONE, qtrue);
 			skin->numSurfaces++;
 		}
@@ -1929,9 +1907,9 @@ qhandle_t RE_RegisterSkin(const char *name)
 		return 0;       // use default skin
 	}
 
-    // copy surfaces to skin
-    skin->surfaces = ri.Hunk_Alloc(skin->numSurfaces * sizeof( skinSurface_t ), h_low );
-    Com_Memcpy( skin->surfaces, parseSurfaces, skin->numSurfaces * sizeof( skinSurface_t ) );
+	// copy surfaces to skin
+	skin->surfaces = ri.Hunk_Alloc(skin->numSurfaces * sizeof(skinSurface_t), h_low);
+	Com_Memcpy(skin->surfaces, parseSurfaces, skin->numSurfaces * sizeof(skinSurface_t));
 
 	return hSkin;
 }
@@ -1948,8 +1926,8 @@ void R_InitSkins(void)
 	// make the default skin have all default shaders
 	skin = tr.skins[0] = ri.Hunk_Alloc(sizeof(skin_t), h_low);
 	Q_strncpyz(skin->name, "<default skin>", sizeof(skin->name));
-	skin->numSurfaces         = 1;
-	skin->surfaces         = ri.Hunk_Alloc(sizeof(skinSurface_t), h_low);
+	skin->numSurfaces        = 1;
+	skin->surfaces           = ri.Hunk_Alloc(sizeof(skinSurface_t), h_low);
 	skin->surfaces[0].shader = tr.defaultShader;
 }
 

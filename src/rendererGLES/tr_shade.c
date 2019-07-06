@@ -29,14 +29,20 @@
  * id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
  */
 /**
- * @file rendererGLES/tr_shade.c
+ * @file renderer/tr_shade.c
  * @brief This file deals with applying shaders to surface data in the tess struct.
  *
  * @note THIS ENTIRE FILE IS BACK END
  */
 
 #include "tr_local.h"
+#if idppc_altivec && !defined(__APPLE__)
+#include <altivec.h>
+#endif
 
+
+static int c_vertexes;          // for seeing how long our average strips are
+static int c_begins;
 
 /**
  * @brief Optionally performs our own glDrawElements that looks for strip conditions
@@ -48,8 +54,10 @@
  */
 static void R_DrawElements(int numIndexes, const glIndex_t *indexes)
 {
-	qglDrawElements(GL_TRIANGLES, numIndexes, GL_INDEX_TYPE, indexes);
-	return;
+    qglDrawElements( GL_TRIANGLES,
+						numIndexes,
+						GL_INDEX_TYPE,
+						indexes );
 }
 
 /*
@@ -121,6 +129,12 @@ static void DrawTris(shaderCommands_t *input)
 	vec4_t       trisColor = { 1, 1, 1, 1 };
 	unsigned int stateBits = 0;
 
+	// exclude 2d from drawing tris
+	if (backEnd.projection2D == qtrue)
+	{
+		return;
+	}
+
 	GL_Bind(tr.whiteImage);
 
 	if (*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X'))
@@ -175,44 +189,15 @@ static void DrawTris(shaderCommands_t *input)
 		GL_State(stateBits);
 		qglDepthRange(0, 0);
 	}
-#ifdef CELSHADING_HACK
-	else if (r_showtris->integer == 3)
-	{
-		stateBits |= (GLS_POLYMODE_LINE | GLS_DEPTHMASK_TRUE);
-		GL_State(stateBits);
-		qglEnable(GL_POLYGON_OFFSET_LINE);
-		qglPolygonOffset(4.0, 0.5);
-		qglLineWidth(5.0);
-	}
-#endif
-	else
-	{
-		stateBits |= (GLS_POLYMODE_LINE);
-		GL_State(stateBits);
-		qglEnable(GL_POLYGON_OFFSET_LINE);
-		qglPolygonOffset(r_offsetFactor->value, r_offsetUnits->value);
-	}
 
 	qglDisableClientState(GL_COLOR_ARRAY);
 	qglDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
 	qglVertexPointer(3, GL_FLOAT, 16, input->xyz);   // padded for SIMD
 
-	if (qglLockArraysEXT)
-	{
-		qglLockArraysEXT(0, input->numVertexes);
-		Ren_LogComment("glLockArraysEXT\n");
-	}
-
 	R_DrawElements(input->numIndexes, input->indexes);
 
-	if (qglUnlockArraysEXT)
-	{
-		qglUnlockArraysEXT();
-		Ren_LogComment("glUnlockArraysEXT\n");
-	}
 	qglDepthRange(0, 1);
-	qglDisable(GL_POLYGON_OFFSET_LINE);
 }
 
 /**
@@ -228,61 +213,18 @@ static void DrawNormals(shaderCommands_t *input)
 	qglDepthRange(0, 0);    // never occluded
 	GL_State(GLS_POLYMODE_LINE | GLS_DEPTHMASK_TRUE);
 
-	// light direction
-	if (r_showNormals->integer == 2)
-	{
-		trRefEntity_t *ent = backEnd.currentEntity;
-		vec3_t        temp2;
+    int i;
+    vec3_t vtx[2];
 
-		if (ent->e.renderfx & RF_LIGHTING_ORIGIN)
-		{
-			VectorSubtract(ent->e.lightingOrigin, backEnd.orientation.origin, temp2);
-		}
-		else
-		{
-			VectorClear(temp2);
-		}
-		temp[0] = DotProduct(temp2, backEnd.orientation.axis[0]);
-		temp[1] = DotProduct(temp2, backEnd.orientation.axis[1]);
-		temp[2] = DotProduct(temp2, backEnd.orientation.axis[2]);
+    for (i = 0 ; i < input->numVertexes ; i++)
+    {
+        VectorMA(input->xyz[i], r_normalLength->value, input->normal[i], temp);
 
-		qglColor3f(ent->ambientLight[0] / 255, ent->ambientLight[1] / 255, ent->ambientLight[2] / 255);
-		qglPointSize(5);
-		qglBegin(GL_POINTS);
-		qglVertex3fv(temp);
-		qglEnd();
-		qglPointSize(1);
-
-		if (Q_fabs(VectorLengthSquared(ent->lightDir) - 1.0f) > 0.2f)
-		{
-			qglColor3f(1, 0, 0);
-		}
-		else
-		{
-			qglColor3f(ent->directedLight[0] / 255, ent->directedLight[1] / 255, ent->directedLight[2] / 255);
-		}
-		qglLineWidth(3);
-		qglBegin(GL_LINES);
-		qglVertex3fv(temp);
-		VectorMA(temp, 32, ent->lightDir, temp);
-		qglVertex3fv(temp);
-		qglEnd();
-		qglLineWidth(1);
-	}
-	// normals drawing
-	else
-	{
-		int i;
-
-		qglBegin(GL_LINES);
-		for (i = 0 ; i < input->numVertexes ; i++)
-		{
-			qglVertex3fv(input->xyz[i]);
-			VectorMA(input->xyz[i], r_normalLength->value, input->normal[i], temp);
-			qglVertex3fv(temp);
-		}
-		qglEnd();
-	}
+        memcpy(vtx, input->xyz[i], sizeof(GLfloat)*3);
+        memcpy(vtx+1, temp, sizeof(GLfloat)*3);
+        qglVertexPointer (3, GL_FLOAT, 16, vtx);
+        qglDrawArrays(GL_LINES, 0, 2);
+    }
 
 	qglDepthRange(0, 1);
 }
@@ -343,13 +285,6 @@ static void DrawMultitextured(shaderCommands_t *input, int stage)
 	}
 
 	GL_State(pStage->stateBits);
-
-	// this is an ugly hack to work around a GeForce driver
-	// bug with multitexture and clip planes
-	if (backEnd.viewParms.isPortal)
-	{
-		qglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	}
 
 	// base
 	GL_SelectTexture(0);
@@ -534,27 +469,199 @@ static void DynamicLightSinglePass(void)
 	R_FogOn();
 }
 
-/*
-===================
-DynamicLightPass()
-
-perform dynamic lighting with multiple rendering passes
-===================
-*/
+#if idppc_altivec
 /**
- * @brief DynamicLightPass
+ * @brief Perform dynamic lighting with multiple rendering passes
  */
-static void DynamicLightPass(void)
+static void DynamicLightPass_altivec(void)
 {
-	int       i, l, a, b, c, color, *intColors;
-	vec3_t    origin;
-	byte      *colors;
-	glIndex_t hitIndexes[SHADER_MAX_INDEXES];
-	int       numIndexes;
-	float     radius, radiusInverseCubed;
-	float     intensity, remainder, modulate;
-	vec3_t    floatColor, dir;
-	dlight_t  *dl;
+	int                  i, l, a, b, c, *intColors;
+	vec_t                origin0, origin1, origin2;
+	vec_t                dir0, dir1, dir2;
+	byte                 *colors;
+	unsigned             hitIndexes[SHADER_MAX_INDEXES];
+	int                  numIndexes;
+	float                radius, radiusInverseCubed;
+	float                intensity, remainder, modulate;
+	vec3_t               floatColor;
+	dlight_t             *dl;
+	float                colorMax = 255;
+	vector float         floatColorVec0, floatColorVec1;
+	vector float         modulateVec, colorVec, zero, colorMaxVec;
+	vector short         colorShort;
+	vector signed int    colorInt;
+	vector unsigned char floatColorVecPerm, modulatePerm, colorChar;
+	vector unsigned char vSel = VECCONST_UINT8(0x00, 0x00, 0x00, 0xff,
+	                                           0x00, 0x00, 0x00, 0xff,
+	                                           0x00, 0x00, 0x00, 0xff,
+	                                           0x00, 0x00, 0x00, 0xff);
+
+	// early out
+	if (backEnd.refdef.num_dlights == 0)
+	{
+		return;
+	}
+
+	// There has to be a better way to do this so that floatColor
+	// and/or modulate are already 16-byte aligned.
+	floatColorVecPerm = vec_lvsl(0, (float *)floatColor);
+	modulatePerm      = vec_lvsl(0, (float *)&modulate);
+	modulatePerm      = (vector unsigned char)vec_splat((vector unsigned int)modulatePerm, 0);
+	zero              = (vector float)vec_splat_s8(0);
+	colorMaxVec       = vec_splat(vec_lde(0, &colorMax), 0);
+
+	// walk light list
+	for (l = 0; l < backEnd.refdef.num_dlights; l++)
+	{
+		// early out
+		if (!(tess.dlightBits & (1 << l)))
+		{
+			continue;
+		}
+
+		// clear colors
+		Com_Memset(tess.svars.colors, 0, sizeof(tess.svars.colors));
+
+		// setup
+		dl                 = &backEnd.refdef.dlights[l];
+		origin0            = dl->transformed[0];
+		origin1            = dl->transformed[1];
+		origin2            = dl->transformed[2];
+		radius             = dl->radius;
+		radiusInverseCubed = dl->radiusInverseCubed;
+		intensity          = dl->intensity;
+		floatColor[0]      = dl->color[0] * 255.0f;
+		floatColor[1]      = dl->color[1] * 255.0f;
+		floatColor[2]      = dl->color[2] * 255.0f;
+
+		floatColorVec0 = vec_ld(0, floatColor);
+		floatColorVec1 = vec_ld(11, floatColor);
+		floatColorVec0 = vec_perm(floatColorVec0, floatColorVec0, floatColorVecPerm);
+
+		// directional lights have max intensity and washout remainder intensity
+		if (dl->flags & REF_DIRECTED_DLIGHT)
+		{
+			remainder = intensity * 0.125;
+		}
+		else
+		{
+			remainder = 0.0f;
+		}
+
+		// illuminate vertexes
+		colors = tess.svars.colors[0];
+		for (i = 0; i < tess.numVertexes; i++, colors += 4)
+		{
+			backEnd.pc.c_dlightVertexes++;
+
+			// directional dlight, origin is a directional normal
+			if (dl->flags & REF_DIRECTED_DLIGHT)
+			{
+				// twosided surfaces use absolute value of the calculated lighting
+				modulate = intensity * DotProduct(dl->origin, tess.normal[i]);
+				if (tess.shader->cullType == CT_TWO_SIDED)
+				{
+					modulate = Q_fabs(modulate);
+				}
+				modulate += remainder;
+			}
+			// ball dlight
+			else
+			{
+				dir0 = radius - Q_fabs(origin0 - tess.xyz[i][0]);
+				if (dir0 <= 0.0f)
+				{
+					continue;
+				}
+				dir1 = radius - Q_fabs(origin1 - tess.xyz[i][1]);
+				if (dir1 <= 0.0f)
+				{
+					continue;
+				}
+				dir2 = radius - Q_fabs(origin2 - tess.xyz[i][2]);
+				if (dir2 <= 0.0f)
+				{
+					continue;
+				}
+
+				modulate = intensity * dir0 * dir1 * dir2 * radiusInverseCubed;
+			}
+
+			// optimizations
+			if (modulate < (1.0f / 128.0f))
+			{
+				continue;
+			}
+			else if (modulate > 1.0f)
+			{
+				modulate = 1.0f;
+			}
+
+			modulateVec = vec_ld(0, (float *)&modulate);
+			modulateVec = vec_perm(modulateVec, modulateVec, modulatePerm);
+			colorVec    = vec_madd(floatColorVec0, modulateVec, zero);
+			colorVec    = vec_max(colorVec, colorMaxVec); // clamp
+			colorInt    = vec_cts(colorVec, 0); // RGBx
+			colorShort  = vec_pack(colorInt, colorInt);     // RGBxRGBx
+			colorChar   = vec_packsu(colorShort, colorShort); // RGBxRGBxRGBxRGBx
+			colorChar   = vec_sel(colorChar, vSel, vSel);   // RGBARGBARGBARGBA replace alpha with 255
+			vec_ste((vector unsigned int)colorChar, 0, (unsigned int *)colors);   // store color
+		}
+
+		// build a list of triangles that need light
+		intColors  = (int *) tess.svars.colors;
+		numIndexes = 0;
+		for (i = 0; i < tess.numIndexes; i += 3)
+		{
+			a = tess.indexes[i];
+			b = tess.indexes[i + 1];
+			c = tess.indexes[i + 2];
+			if (!(intColors[a] | intColors[b] | intColors[c]))
+			{
+				continue;
+			}
+			hitIndexes[numIndexes++] = a;
+			hitIndexes[numIndexes++] = b;
+			hitIndexes[numIndexes++] = c;
+		}
+
+		if (numIndexes == 0)
+		{
+			continue;
+		}
+
+		// debug code (fixme, there's a bug in this function!)
+		//for( i = 0; i < numIndexes; i++ )
+		//  intColors[ hitIndexes[ i ] ] = 0x000000FF;
+
+		qglEnableClientState(GL_COLOR_ARRAY);
+		qglColorPointer(4, GL_UNSIGNED_BYTE, 0, tess.svars.colors);
+
+		R_FogOff();
+		GL_Bind(tr.whiteImage);
+		GL_State(GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ONE | GLS_DEPTHFUNC_EQUAL);
+		R_DrawElements(numIndexes, hitIndexes);
+		backEnd.pc.c_totalIndexes  += numIndexes;
+		backEnd.pc.c_dlightIndexes += numIndexes;
+		R_FogOn();
+	}
+}
+#endif
+
+/**
+ * @brief DynamicLightPass_scalar
+ */
+static void DynamicLightPass_scalar(void)
+{
+	int      i, l, a, b, c, color, *intColors;
+	vec3_t   origin;
+	byte     *colors;
+	unsigned hitIndexes[SHADER_MAX_INDEXES];
+	int      numIndexes;
+	float    radius, radiusInverseCubed;
+	float    intensity, remainder, modulate;
+	vec3_t   floatColor, dir;
+	dlight_t *dl;
 
 	// early out
 	if (backEnd.refdef.num_dlights == 0)
@@ -691,7 +798,21 @@ static void DynamicLightPass(void)
 	}
 }
 
-
+/**
+ * @brief DynamicLightPass
+ */
+static void DynamicLightPass(void)
+{
+#if idppc_altivec
+	if (com_altivec->integer)
+	{
+		// must be in a seperate function or G3 systems will crash.
+		DynamicLightPass_altivec();
+		return;
+	}
+#endif // idppc_altivec
+	DynamicLightPass_scalar();
+}
 
 /**
  * @brief Blends a fog texture on top of everything else
@@ -1383,11 +1504,6 @@ void RB_StageIteratorGeneric(void)
 
 	// lock XYZ
 	qglVertexPointer(3, GL_FLOAT, 16, input->xyz);   // padded for SIMD
-	if (qglLockArraysEXT)
-	{
-		qglLockArraysEXT(0, input->numVertexes);
-		Ren_LogComment("glLockArraysEXT\n");
-	}
 
 	// enable color and texcoord arrays after the lock if necessary
 	if (!setArraysOnce)
@@ -1419,13 +1535,6 @@ void RB_StageIteratorGeneric(void)
 	if (tess.fogNum && tess.shader->fogPass)
 	{
 		RB_FogPass();
-	}
-
-	// unlock arrays
-	if (qglUnlockArraysEXT)
-	{
-		qglUnlockArraysEXT();
-		Ren_LogComment("glUnlockArraysEXT\n");
 	}
 
 	// reset polygon offset
@@ -1462,12 +1571,6 @@ void RB_StageIteratorVertexLitTexture(void)
 	qglTexCoordPointer(2, GL_FLOAT, 16, tess.texCoords[0][0]);
 	qglVertexPointer(3, GL_FLOAT, 16, input->xyz);
 
-	if (qglLockArraysEXT)
-	{
-		qglLockArraysEXT(0, input->numVertexes);
-		Ren_LogComment("glLockArraysEXT\n");
-	}
-
 	// call special shade routine
 	R_BindAnimatedImage(&tess.xstages[0]->bundle[0]);
 	GL_State(tess.xstages[0]->stateBits);
@@ -1492,13 +1595,6 @@ void RB_StageIteratorVertexLitTexture(void)
 	if (tess.fogNum && tess.shader->fogPass)
 	{
 		RB_FogPass();
-	}
-
-	// unlock arrays
-	if (qglUnlockArraysEXT)
-	{
-		qglUnlockArraysEXT();
-		Ren_LogComment("glUnlockArraysEXT\n");
 	}
 }
 
@@ -1565,13 +1661,6 @@ void RB_StageIteratorLightmappedMultitexture(void)
 	qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
 	qglTexCoordPointer(2, GL_FLOAT, 16, tess.texCoords[0][1]);
 
-	// lock arrays
-	if (qglLockArraysEXT)
-	{
-		qglLockArraysEXT(0, input->numVertexes);
-		Ren_LogComment("glLockArraysEXT\n");
-	}
-
 	R_DrawElements(input->numIndexes, input->indexes);
 
 	// disable texturing on TEXTURE1, then select TEXTURE0
@@ -1603,13 +1692,6 @@ void RB_StageIteratorLightmappedMultitexture(void)
 	if (tess.fogNum && tess.shader->fogPass)
 	{
 		RB_FogPass();
-	}
-
-	// unlock arrays
-	if (qglUnlockArraysEXT)
-	{
-		qglUnlockArraysEXT();
-		Ren_LogComment("glUnlockArraysEXT\n");
 	}
 }
 

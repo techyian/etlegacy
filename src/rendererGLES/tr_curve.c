@@ -616,7 +616,7 @@ srfGridMesh_t *R_GridInsertColumn(srfGridMesh_t *grid, int column, int row, vec3
 	{
 		if (i == column)
 		{
-			// insert new column
+			//insert new column
 			for (j = 0; j < grid->height; j++)
 			{
 				LerpDrawVert(&grid->verts[j * grid->width + i - 1], &grid->verts[j * grid->width + i], &ctrl[j][i]);
@@ -681,7 +681,7 @@ srfGridMesh_t *R_GridInsertRow(srfGridMesh_t *grid, int row, int column, vec3_t 
 	{
 		if (i == row)
 		{
-			// insert new row
+			//insert new row
 			for (j = 0; j < grid->width; j++)
 			{
 				LerpDrawVert(&grid->verts[(i - 1) * grid->width + j], &grid->verts[i * grid->width + j], &ctrl[i][j]);

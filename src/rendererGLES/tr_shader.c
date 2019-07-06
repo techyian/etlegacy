@@ -236,7 +236,7 @@ static int NameToSrcBlendMode(const char *name)
 		return GLS_SRCBLEND_ALPHA_SATURATE;
 	}
 
-	Ren_Warning("WARNING: unknown blend mode '%s' in shader '%s', substituting GL_ONE\n", name, shader.name);
+	Ren_Warning("WARNING: unknown src blend mode '%s' in shader '%s', substituting GL_ONE\n", name, shader.name);
 	return GLS_SRCBLEND_ONE;
 }
 
@@ -281,7 +281,7 @@ static int NameToDstBlendMode(const char *name)
 		return GLS_DSTBLEND_ONE_MINUS_SRC_COLOR;
 	}
 
-	Ren_Warning("WARNING: unknown blend mode '%s' in shader '%s', substituting GL_ONE\n", name, shader.name);
+	Ren_Warning("WARNING: unknown dst blend mode '%s' in shader '%s', substituting GL_ONE\n", name, shader.name);
 	return GLS_DSTBLEND_ONE;
 }
 
@@ -459,14 +459,14 @@ static void ParseTexMod(char *_text, shaderStage_t *stage)
 		token = COM_ParseExt(text, qfalse);
 		if (token[0] == 0)
 		{
-			Ren_Warning("WARNING: missing scale scroll parms in shader '%s'\n", shader.name);
+			Ren_Warning("WARNING: missing 1st scale scroll parms in shader '%s'\n", shader.name);
 			return;
 		}
 		tmi->scroll[0] = atof(token);
 		token          = COM_ParseExt(text, qfalse);
 		if (token[0] == 0)
 		{
-			Ren_Warning("WARNING: missing scale scroll parms in shader '%s'\n", shader.name);
+			Ren_Warning("WARNING: missing 2nd scale scroll parms in shader '%s'\n", shader.name);
 			return;
 		}
 		tmi->scroll[1] = atof(token);
@@ -738,7 +738,7 @@ static qboolean ParseStage(shaderStage_t *stage, char **text)
 				stage->bundle[0].image[0] = R_FindImageFile(token, !shader.noMipMaps, !shader.noPicMip, GL_REPEAT, qfalse);
 				if (!stage->bundle[0].image[0])
 				{
-					Ren_Warning("WARNING: R_FindImageFile could not find '%s' in shader '%s'\n", token, shader.name);
+					Ren_Warning("WARNING: R_FindImageFile could not find 'map' image '%s' in shader '%s'\n", token, shader.name);
 					return qfalse;
 				}
 			}
@@ -756,7 +756,7 @@ static qboolean ParseStage(shaderStage_t *stage, char **text)
 			stage->bundle[0].image[0] = R_FindImageFile(token, !shader.noMipMaps, !shader.noPicMip, GL_CLAMP_TO_EDGE, qfalse);
 			if (!stage->bundle[0].image[0])
 			{
-				Ren_Warning("WARNING: R_FindImageFile could not find '%s' in shader '%s'\n", token, shader.name);
+				Ren_Warning("WARNING: R_FindImageFile could not find 'clampmap' image '%s' in shader '%s'\n", token, shader.name);
 				return qfalse;
 			}
 		}
@@ -799,7 +799,7 @@ static qboolean ParseStage(shaderStage_t *stage, char **text)
 				stage->bundle[0].image[0] = R_FindImageFile(token, qfalse, qfalse, GL_CLAMP_TO_EDGE, qtrue);
 				if (!stage->bundle[0].image[0])
 				{
-					Ren_Warning("WARNING: R_FindImageFile could not find '%s' in shader '%s'\n", token, shader.name);
+					Ren_Warning("WARNING: R_FindImageFile could not find 'lighmap' image '%s' in shader '%s'\n", token, shader.name);
 					return qfalse;
 				}
 				stage->bundle[0].isLightmap = qtrue;
@@ -834,7 +834,7 @@ static qboolean ParseStage(shaderStage_t *stage, char **text)
 					stage->bundle[0].image[num] = R_FindImageFile(token, !shader.noMipMaps, !shader.noPicMip, GL_REPEAT, qfalse);
 					if (!stage->bundle[0].image[num])
 					{
-						Ren_Warning("WARNING: R_FindImageFile could not find '%s' in shader '%s'\n", token, shader.name);
+						Ren_Warning("WARNING: R_FindImageFile could not find 'animMap' image '%s' in shader '%s'\n", token, shader.name);
 						return qfalse;
 					}
 					stage->bundle[0].numImageAnimations++;
@@ -1366,7 +1366,7 @@ static void ParseDeform(char **text)
 		}
 		else
 		{
-			ds->deformationSpread = 100.0f;
+			ds->deformationSpread = 100.0;
 			Ren_Warning("WARNING: illegal div value of 0 in deformVertexes command for shader '%s'\n", shader.name);
 		}
 
@@ -1631,17 +1631,11 @@ infoParm_t infoParms[] =
 	{ "nolightmap",        0, SURF_NOLIGHTMAP,   0                         }, // don't generate a lightmap
 	{ "nodlight",          0, SURF_NODLIGHT,     0                         }, // don't ever add dynamic lights
 
-	// these surface parms are relics, we'll keep the names to keep compatibility
-	{ "monsterslicknorth", 0, 0,                 0                         },
-	{ "monsterslickeast",  0, 0,                 0                         },
-	{ "monsterslicksouth", 0, 0,                 0                         },
-	{ "monsterslickwest",  0, 0,                 0                         } //,
-
-	// new surface parms:
-	//{ "1",                 0, SURF_MONSLICK_N,   0                         },
-	//{ "2",                 0, SURF_MONSLICK_E,   0                         },
-	//{ "3",                 0, SURF_MONSLICK_S,   0                         },
-	//{ "4",                 0, SURF_MONSLICK_W,   0                         }
+	// these surface parms are unused in ETL but kept for mods
+	{ "monsterslicknorth", 0, SURF_MONSLICK_N,   0                         },
+	{ "monsterslickeast",  0, SURF_MONSLICK_E,   0                         },
+	{ "monsterslicksouth", 0, SURF_MONSLICK_S,   0                         },
+	{ "monsterslickwest",  0, SURF_MONSLICK_W,   0                         }
 };
 
 /**
@@ -1746,7 +1740,7 @@ static qboolean ParseShader(char **text)
 			continue;
 		}
 		// sun parms
-		else if (!Q_stricmp(token, "q3map_sun"))
+		else if (!Q_stricmp(token, "q3map_sun") || !Q_stricmp(token, "q3map_sunExt"))
 		{
 			float a, b;
 
@@ -1774,6 +1768,8 @@ static qboolean ParseShader(char **text)
 			tr.sunDirection[0] = cos(a) * cos(b);
 			tr.sunDirection[1] = sin(a) * cos(b);
 			tr.sunDirection[2] = sin(b);
+
+			SkipRestOfLine(text); // skip q3map_sunExt additional parms
 		}
 		else if (!Q_stricmp(token, "deformVertexes"))
 		{
@@ -1857,7 +1853,7 @@ static qboolean ParseShader(char **text)
 				shader.fogParms.depthForOpaque = shader.fogParms.depthForOpaque < 1 ? 1 : shader.fogParms.depthForOpaque;
 			}
 			shader.fogParms.tcScale = 1.0f / shader.fogParms.depthForOpaque;
-
+			
 			// skip any old gradient directions
 			SkipRestOfLine(text);
 			continue;
@@ -2060,7 +2056,7 @@ static qboolean ParseShader(char **text)
 			}
 			else if (!Q_stricmp(token, "front"))
 			{
-				// CT_FRONT_SIDED is set per default - nothing to do just don't throw a warning
+				// CT_FRONT_SIDED is set per default see R_FindShader - nothing to do just don't throw a warning
 			}
 			else
 			{
@@ -2774,6 +2770,28 @@ static void SetImplicitShaderStages(image_t *image)
 }
 
 /**
+ * @brief Inits a shader
+ * @param name
+ * @param lighmapIndex
+ */
+static void InitShader(const char *name, int lightmapIndex)
+{
+	int i;
+
+	// clear the global shader
+	Com_Memset(&shader, 0, sizeof(shader));
+	Com_Memset(&stages, 0, sizeof(stages));
+
+	Q_strncpyz(shader.name, name, sizeof(shader.name));
+	shader.lightmapIndex = lightmapIndex;
+
+	for (i = 0 ; i < MAX_SHADER_STAGES ; i++)
+	{
+		stages[i].bundle[0].texMods = texMods[i];
+	}
+}
+
+/**
  * @brief Returns a freshly allocated shader with all the needed info
  * from the current global working shader
  * @return
@@ -3088,11 +3106,12 @@ static char *FindShaderInShaderText(const char *shadername)
 #ifdef SH_LOADTIMING
 	static int total = 0;
 
-	int start = Sys_Milliseconds();
-#endif // _DEBUG
+	int start = ri.Milliseconds();
+#endif // SH_LOADTIMING
 
 	if (!p)
 	{
+		Ren_Warning("FindShaderInShaderText WARNING: no shadertext found for shader '%s'\n", shadername);
 		return NULL;
 	}
 
@@ -3118,9 +3137,9 @@ static char *FindShaderInShaderText(const char *shadername)
 				if ((token[0] != 0) && !Q_stricmp(token, shadername))
 				{
 #ifdef SH_LOADTIMING
-					total += Sys_Milliseconds() - start;
-					Ren_Print("Shader lookup: %i, total: %i\n", Sys_Milliseconds() - start, total);
-#endif // _DEBUG
+					total += ri.Milliseconds() - start;
+					Ren_Print("Shader lookup dshader '%s': %i, total: %i\n", shadername, ri.Milliseconds() - start, total);
+#endif // SH_LOADTIMING
 					//ri.Printf( PRINT_ALL, "Found dynamic shader [%s] with shadertext [%s]\n", shadername, dptr->shadertext );
 					return q;
 				}
@@ -3133,7 +3152,8 @@ static char *FindShaderInShaderText(const char *shadername)
 	// optimized shader loading
 	if (r_cacheShaders->integer)
 	{
-		/*if (strstr( shadername, "/" ) && !strstr( shadername, "." ))*/ {
+		/*if (strstr( shadername, "/" ) && !strstr( shadername, "." ))*/
+		{
 			unsigned short int    checksum;
 			shaderStringPointer_t *pShaderString;
 
@@ -3150,16 +3170,20 @@ static char *FindShaderInShaderText(const char *shadername)
 				if ((token[0] != 0) && !Q_stricmp(token, shadername))
 				{
 #ifdef SH_LOADTIMING
-					total += Sys_Milliseconds() - start;
-					Ren_Print("Shader lookup: %i, total: %i\n", Sys_Milliseconds() - start, total);
-#endif // _DEBUG
+					total += ri.Milliseconds() - start;
+					Ren_Print("Shader lookup cached '%s': %i, total: %i\n", shadername, ri.Milliseconds() - start, total);
+#endif // SH_LOADTIMING
 					return p;
 				}
 
 				pShaderString = pShaderString->next;
 			}
-
+			
 			// it's not even in our list, so it mustn't exist
+#ifdef SH_LOADTIMING
+			total += ri.Milliseconds() - start;
+			Ren_Print("Shader lookup cached failed '%s': %i, total: %i\n", shadername, ri.Milliseconds() - start, total);
+#endif // SH_LOADTIMING
 			return NULL;
 		}
 	}
@@ -3178,9 +3202,9 @@ static char *FindShaderInShaderText(const char *shadername)
 		if (!Q_stricmp(token, shadername))
 		{
 #ifdef SH_LOADTIMING
-			total += Sys_Milliseconds() - start;
-			Ren_Print("Shader lookup: %i, total: %i\n", Sys_Milliseconds() - start, total);
-#endif // _DEBUG
+			total += ri.Milliseconds() - start;
+			Ren_Print("Shader lookup label '%s': %i, total: %i\n", shadername, ri.Milliseconds() - start, total);
+#endif // SH_LOADTIMING
 			return p;
 		}
 
@@ -3188,9 +3212,9 @@ static char *FindShaderInShaderText(const char *shadername)
 	}
 
 #ifdef SH_LOADTIMING
-	total += Sys_Milliseconds() - start;
-	Ren_Print("Shader lookup: %i, total: %i\n", Sys_Milliseconds() - start, total);
-#endif // _DEBUG
+	total += ri.Milliseconds() - start;
+	Ren_Print("Shader lookup '%s' failed: %i, total: %i\n", shadername, ri.Milliseconds() - start, total);
+#endif // SH_LOADTIMING
 	return NULL;
 }
 
@@ -3317,7 +3341,7 @@ shader_t *R_FindShader(const char *name, int lightmapIndex, qboolean mipRawImage
 {
 	char     strippedName[MAX_QPATH];
 	char     fileName[MAX_QPATH];
-	int      i, hash;
+	int      hash;
 	char     *shaderText;
 	image_t  *image;
 	shader_t *sh;
@@ -3387,15 +3411,7 @@ shader_t *R_FindShader(const char *name, int lightmapIndex, qboolean mipRawImage
 		}
 	}
 
-	// clear the global shader
-	Com_Memset(&shader, 0, sizeof(shader));
-	Com_Memset(&stages, 0, sizeof(stages));
-	Q_strncpyz(shader.name, strippedName, sizeof(shader.name));
-	shader.lightmapIndex = lightmapIndex;
-	for (i = 0 ; i < MAX_SHADER_STAGES ; i++)
-	{
-		stages[i].bundle[0].texMods = texMods[i];
-	}
+	InitShader(strippedName, lightmapIndex);
 
 	// FIXME: set these "need" values apropriately
 	shader.needsNormal = qtrue;
@@ -3479,7 +3495,7 @@ shader_t *R_FindShader(const char *name, int lightmapIndex, qboolean mipRawImage
  */
 qhandle_t RE_RegisterShaderFromImage(const char *name, int lightmapIndex, image_t *image, qboolean mipRawImage)
 {
-	int      i, hash;
+	int      hash;
 	shader_t *sh;
 
 	hash = generateHashValue(name);
@@ -3501,14 +3517,7 @@ qhandle_t RE_RegisterShaderFromImage(const char *name, int lightmapIndex, image_
 	}
 
 	// clear the global shader
-	Com_Memset(&shader, 0, sizeof(shader));
-	Com_Memset(&stages, 0, sizeof(stages));
-	Q_strncpyz(shader.name, name, sizeof(shader.name));
-	shader.lightmapIndex = lightmapIndex;
-	for (i = 0 ; i < MAX_SHADER_STAGES ; i++)
-	{
-		stages[i].bundle[0].texMods = texMods[i];
-	}
+	InitShader(name, lightmapIndex);
 
 	// FIXME: set these "need" values apropriately
 	shader.needsNormal = qtrue;
@@ -3622,7 +3631,7 @@ qhandle_t RE_RegisterShaderNoMip(const char *name)
 	// the same name, we don't try looking for it again
 	if (sh->defaultShader)
 	{
-		Ren_Warning("RE_RegisterShaderNoMip WARNING: shader '%s' not found - using default shader\n", name);
+		Ren_Developer("RE_RegisterShaderNoMip WARNING: shader '%s' not found - using default shader\n", name);
 		return 0;
 	}
 
@@ -3893,12 +3902,8 @@ static void CreateInternalShaders(void)
 	tr.numShaders = 0;
 
 	// init the default shader
-	Com_Memset(&shader, 0, sizeof(shader));
-	Com_Memset(&stages, 0, sizeof(stages));
+	InitShader("<default>", LIGHTMAP_NONE);
 
-	Q_strncpyz(shader.name, "<default>", sizeof(shader.name));
-
-	shader.lightmapIndex         = LIGHTMAP_NONE;
 	stages[0].bundle[0].image[0] = tr.defaultImage;
 	stages[0].active             = qtrue;
 	stages[0].stateBits          = GLS_DEFAULT;

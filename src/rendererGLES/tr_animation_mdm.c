@@ -600,10 +600,10 @@ static float sp, sy, cp, cy, sr, cr;
  * @note Unused
 static ID_INLINE void LocalAngleVector(vec3_t angles, vec3_t forward)
 {
-    LAVangle = angles[YAW] * (M_PI * 2 / 360);
+    LAVangle = angles[YAW] * (M_TAU_F / 360);
     sy       = sin(LAVangle);
     cy       = cos(LAVangle);
-    LAVangle = angles[PITCH] * (M_PI * 2 / 360);
+    LAVangle = angles[PITCH] * (M_TAU_F / 360);
     sp       = sin(LAVangle);
     cp       = cos(LAVangle);
 
@@ -666,10 +666,10 @@ static ID_INLINE void LocalIngleVector(int ingles[3], vec3_t forward)
 	sp = SIN_TABLE(ingles[PITCH] & 65535);
 	cp = COS_TABLE(ingles[PITCH] & 65535);
 
-	// sy = sin( SHORT2ANGLE( ingles[ YAW ] ) * (M_PI*2 / 360) );
-	// cy = cos( SHORT2ANGLE( ingles[ YAW ] ) * (M_PI*2 / 360) );
-	// sp = sin( SHORT2ANGLE( ingles[ PITCH ] ) * (M_PI*2 / 360) );
-	// cp = cos( SHORT2ANGLE( ingles[ PITCH ] ) *  (M_PI*2 / 360) );
+	// sy = sin( SHORT2ANGLE( ingles[ YAW ] ) * (M_TAU_F / 360) );
+	// cy = cos( SHORT2ANGLE( ingles[ YAW ] ) * (M_TAU_F / 360) );
+	// sp = sin( SHORT2ANGLE( ingles[ PITCH ] ) * (M_TAU_F / 360) );
+	// cp = cos( SHORT2ANGLE( ingles[ PITCH ] ) *  (M_TAU_F / 360) );
 
 	forward[0] = cp * cy;
 	forward[1] = cp * sy;
@@ -1880,244 +1880,6 @@ void RB_MDM_SurfaceAnim(mdmSurface_t *surface)
 	}
 
 	DBG_SHOWTIME
-
-	if (r_bonesDebug->integer)
-	{
-		GL_State(GLS_POLYMODE_LINE | GLS_DEPTHMASK_TRUE);
-		if (r_bonesDebug->integer < 3 || r_bonesDebug->integer == 5 || r_bonesDebug->integer == 8 || r_bonesDebug->integer == 9)
-		{
-			int i;
-
-			// DEBUG: show the bones as a stick figure with axis at each bone
-			boneRefs = ( int * )((byte *)surface + surface->ofsBoneReferences);
-			for (i = 0; i < surface->numBoneReferences; i++, boneRefs++)
-			{
-				bonePtr = &bones[*boneRefs];
-
-				GL_Bind(tr.whiteImage);
-				if (r_bonesDebug->integer != 9)
-				{
-					qglLineWidth(1);
-#if 0
-					// TODO: OpenGL ES renderer
-					qglBegin(GL_LINES);
-					for (j = 0; j < 3; j++)
-					{
-						VectorClear(vec);
-						vec[j] = 1;
-						qglColor3fv(vec);
-						qglVertex3fv(bonePtr->translation);
-						VectorMA(bonePtr->translation, (r_bonesDebug->integer == 8 ? 1.5f : 5), bonePtr->matrix[j], vec);
-						qglVertex3fv(vec);
-					}
-					qglEnd();
-#endif
-				}
-
-				// connect to our parent if it's valid
-				if (validBones[boneInfo[*boneRefs].parent])
-				{
-					qglLineWidth(r_bonesDebug->integer == 8 ? 4 : 2);
-#if 0
-					// TODO: OpenGL ES renderer
-					qglBegin(GL_LINES);
-					qglColor3f(.6f, .6f, .6f);
-					qglVertex3fv(bonePtr->translation);
-					qglVertex3fv(bones[boneInfo[*boneRefs].parent].translation);
-					qglEnd();
-#endif
-				}
-
-				qglLineWidth(1);
-			}
-
-			if (r_bonesDebug->integer == 8)
-			{
-				// FIXME: Actually draw the whole skeleton
-				//if( surface == (mdmSurface_t *)((byte *)header + header->ofsSurfaces) ) {
-				mdxHeader_t *mdxHeader = R_GetModelByHandle(refent->frameModel)->model.mdx;
-				boneRefs = ( int * )((byte *)surface + surface->ofsBoneReferences);
-
-				qglDepthRange(0, 0);        // never occluded
-				qglBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-				for (i = 0; i < surface->numBoneReferences; i++, boneRefs++)
-				{
-					vec3_t        diff;
-					mdxBoneInfo_t *mdxBoneInfo = ( mdxBoneInfo_t * )((byte *)mdxHeader + mdxHeader->ofsBones + *boneRefs * sizeof(mdxBoneInfo_t));
-
-					bonePtr = &bones[*boneRefs];
-
-					VectorSet(vec, 0.f, 0.f, 32.f);
-					VectorSubtract(bonePtr->translation, vec, diff);
-					vec[0] = vec[0] + diff[0] * 6;
-					vec[1] = vec[1] + diff[1] * 6;
-					vec[2] = vec[2] + diff[2] * 3;
-
-					qglEnable(GL_BLEND);
-
-#if 0
-					// TODO: OpenGL ES renderer
-					qglBegin(GL_LINES);
-					qglColor4f(1.f, .4f, .05f, .35f);
-					qglVertex3fv(bonePtr->translation);
-					qglVertex3fv(vec);
-					qglEnd();
-#endif
-					qglDisable(GL_BLEND);
-
-					R_DebugText(vec, 1.f, 1.f, 1.f, mdxBoneInfo->name, qfalse);         // qfalse, as there is no reason to set depthrange again
-				}
-
-				qglDepthRange(0, 1);
-				//}
-			}
-			else if (r_bonesDebug->integer == 9)
-			{
-				if (surface == ( mdmSurface_t * )((byte *)header + header->ofsSurfaces))
-				{
-					mdmTag_t *pTag = ( mdmTag_t * )((byte *)header + header->ofsTags);
-
-					qglDepthRange(0, 0);    // never occluded
-					qglBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-					for (i = 0; i < header->numTags; i++)
-					{
-						mdxBoneFrame_t *tagBone;
-						orientation_t  outTag;
-						vec3_t         diff;
-
-						// now extract the orientation for the bone that represents our tag
-						tagBone = &bones[pTag->boneIndex];
-						VectorClear(outTag.origin);
-						LocalAddScaledMatrixTransformVectorTranslate(pTag->offset, 1.f, tagBone->matrix, tagBone->translation, outTag.origin);
-						for (j = 0; j < 3; j++)
-						{
-							LocalMatrixTransformVector(pTag->axis[j], bone->matrix, outTag.axis[j]);
-						}
-
-						GL_Bind(tr.whiteImage);
-						qglLineWidth(2);
-#if 0
-						// TODO: OpenGL ES renderer
-						qglBegin(GL_LINES);
-						for (j = 0; j < 3; j++)
-						{
-							VectorClear(vec);
-							vec[j] = 1;
-							qglColor3fv(vec);
-							qglVertex3fv(outTag.origin);
-							VectorMA(outTag.origin, 5, outTag.axis[j], vec);
-							qglVertex3fv(vec);
-						}
-						qglEnd();
-#endif // 0
-						VectorSet(vec, 0.f, 0.f, 32.f);
-						VectorSubtract(outTag.origin, vec, diff);
-						vec[0] = vec[0] + diff[0] * 2;
-						vec[1] = vec[1] + diff[1] * 2;
-						vec[2] = vec[2] + diff[2] * 1.5f;
-
-						qglLineWidth(1);
-#if 0
-						// TODO: OpenGL ES renderer
-						qglEnable(GL_BLEND);
-						qglBegin(GL_LINES);
-						qglColor4f(1.f, .4f, .05f, .35f);
-						qglVertex3fv(outTag.origin);
-						qglVertex3fv(vec);
-						qglEnd();
-#endif // 0
-						qglDisable(GL_BLEND);
-
-						R_DebugText(vec, 1.f, 1.f, 1.f, pTag->name, qfalse);    // qfalse, as there is no reason to set depthrange again
-
-						pTag = ( mdmTag_t * )((byte *)pTag + pTag->ofsEnd);
-					}
-					qglDepthRange(0, 1);
-				}
-			}
-		}
-
-		if (r_bonesDebug->integer >= 3 && r_bonesDebug->integer <= 6)
-		{
-			int render_indexes = tess.numIndexes - oldIndexes;
-
-			// show mesh edges
-			tempVert   = ( float * )(tess.xyz + baseVertex);
-			tempNormal = ( float * )(tess.normal + baseVertex);
-
-			GL_Bind(tr.whiteImage);
-			qglLineWidth(1);
-#if 0
-			// TODO: OpenGL ES renderer
-			qglBegin(GL_LINES);
-			qglColor3f(.0, .0, .8f);
-
-			pIndexes = &tess.indexes[oldIndexes];
-			for (j = 0; j < render_indexes / 3; j++, pIndexes += 3)
-			{
-				qglVertex3fv(tempVert + 4 * pIndexes[0]);
-				qglVertex3fv(tempVert + 4 * pIndexes[1]);
-
-				qglVertex3fv(tempVert + 4 * pIndexes[1]);
-				qglVertex3fv(tempVert + 4 * pIndexes[2]);
-
-				qglVertex3fv(tempVert + 4 * pIndexes[2]);
-				qglVertex3fv(tempVert + 4 * pIndexes[0]);
-			}
-
-			qglEnd();
-#endif // 0
-
-			if (r_bonesDebug->integer == 4) // track debug stats
-			{
-				totalrv += render_count;
-				totalrt += render_indexes / 3;
-				totalv  += surface->numVerts;
-				totalt  += surface->numTriangles;
-			}
-
-			if (r_bonesDebug->integer == 3)
-			{
-				Ren_Print("Lod %.2f  verts %4d/%4d  tris %4d/%4d  (%.2f%%)\n", lodScale, render_count, surface->numVerts, render_indexes / 3, surface->numTriangles,
-				          100.0 * render_indexes / 3 / (double)surface->numTriangles);
-			}
-		}
-
-		if (r_bonesDebug->integer == 6 || r_bonesDebug->integer == 7)
-		{
-			v        = ( mdmVertex_t * )((byte *)surface + surface->ofsVerts);
-			tempVert = ( float * )(tess.xyz + baseVertex);
-			GL_Bind(tr.whiteImage);
-			qglPointSize(5);
-#if 0
-			// TODO: OpenGL ES renderer
-			qglBegin(GL_POINTS);
-			for (j = 0; j < render_count; j++, tempVert += 4)
-			{
-				if (v->numWeights > 1)
-				{
-					if (v->numWeights == 2)
-					{
-						qglColor3f(.4f, .4f, 0.f);
-					}
-					else if (v->numWeights == 3)
-					{
-						qglColor3f(.8f, .4f, 0.f);
-					}
-					else
-					{
-						qglColor3f(1.f, .4f, 0.f);
-					}
-					qglVertex3fv(tempVert);
-				}
-				v = (mdmVertex_t *)&v->weights[v->numWeights];
-			}
-			qglEnd();
-#endif
-		}
-	}
 
 /*	if( r_showmodelbounds->integer ) {
         vec3_t diff, v1, v2, v3, v4, v5, v6;

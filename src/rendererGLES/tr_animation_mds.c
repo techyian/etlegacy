@@ -576,10 +576,10 @@ static float sp, sy, cp, cy;
  */
 static ID_INLINE void LocalAngleVector(vec3_t angles, vec3_t forward)
 {
-	LAVangle = angles[YAW] * (M_PI * 2 / 360);
+	LAVangle = angles[YAW] * (M_TAU_F / 360);
 	sy       = sin(LAVangle);
 	cy       = cos(LAVangle);
-	LAVangle = angles[PITCH] * (M_PI * 2 / 360);
+	LAVangle = angles[PITCH] * (M_TAU_F / 360);
 	sp       = sin(LAVangle);
 	cp       = cos(LAVangle);
 
@@ -1640,100 +1640,6 @@ void RB_SurfaceAnim(mdsSurface_t *surface)
 	}
 
 	DBG_SHOWTIME
-
-	if (r_bonesDebug->integer)
-	{
-		if (r_bonesDebug->integer < 3)
-		{
-			int i;
-
-			// DEBUG: show the bones as a stick figure with axis at each bone
-			boneRefs = ( int * )((byte *)surface + surface->ofsBoneReferences);
-			for (i = 0; i < surface->numBoneReferences; i++, boneRefs++)
-			{
-				bonePtr = &bones[*boneRefs];
-
-				GL_Bind(tr.whiteImage);
-				qglLineWidth(1);
-#if 0
-				// TODO: OpenGL ES renderer
-				qglBegin(GL_LINES);
-				for (j = 0; j < 3; j++)
-				{
-					VectorClear(vec);
-					vec[j] = 1;
-					qglColor3fv(vec);
-					qglVertex3fv(bonePtr->translation);
-					VectorMA(bonePtr->translation, 5, bonePtr->matrix[j], vec);
-					qglVertex3fv(vec);
-				}
-				qglEnd();
-#endif // 0
-				// connect to our parent if it's valid
-				if (validBones[boneInfo[*boneRefs].parent])
-				{
-					qglLineWidth(2);
-#if 0
-					// TODO: OpenGL ES renderer
-					qglBegin(GL_LINES);
-					qglColor3f(.6f, .6f, .6f);
-					qglVertex3fv(bonePtr->translation);
-					qglVertex3fv(bones[boneInfo[*boneRefs].parent].translation);
-					qglEnd();
-#endif
-				}
-
-				qglLineWidth(1);
-			}
-		}
-
-		if (r_bonesDebug->integer == 3 || r_bonesDebug->integer == 4)
-		{
-			int render_indexes = (tess.numIndexes - oldIndexes);
-
-			// show mesh edges
-			tempVert   = ( float * )(tess.xyz + baseVertex);
-			tempNormal = ( float * )(tess.normal + baseVertex);
-
-			GL_Bind(tr.whiteImage);
-			qglLineWidth(1);
-#if 0
-			// TODO: OpenGL ES renderer
-			qglBegin(GL_LINES);
-			qglColor3f(.0f, .0f, .8f);
-
-			pIndexes = &tess.indexes[oldIndexes];
-			for (j = 0; j < render_indexes / 3; j++, pIndexes += 3)
-			{
-				qglVertex3fv(tempVert + 4 * pIndexes[0]);
-				qglVertex3fv(tempVert + 4 * pIndexes[1]);
-
-				qglVertex3fv(tempVert + 4 * pIndexes[1]);
-				qglVertex3fv(tempVert + 4 * pIndexes[2]);
-
-				qglVertex3fv(tempVert + 4 * pIndexes[2]);
-				qglVertex3fv(tempVert + 4 * pIndexes[0]);
-			}
-
-			qglEnd();
-#endif // 0
-
-			// track debug stats
-			if (r_bonesDebug->integer == 4)
-			{
-				totalrv += render_count;
-				totalrt += render_indexes / 3;
-				totalv  += surface->numVerts;
-				totalt  += surface->numTriangles;
-			}
-
-			if (r_bonesDebug->integer == 3)
-			{
-				Ren_Print("Lod %.2f  verts %4d/%4d  tris %4d/%4d  (%.2f%%)\n", lodScale, render_count, surface->numVerts, render_indexes / 3, surface->numTriangles,
-				          (100.0 * render_indexes / 3) / (double) surface->numTriangles);
-			}
-		}
-	}
 
 	if (r_bonesDebug->integer > 1)
 	{

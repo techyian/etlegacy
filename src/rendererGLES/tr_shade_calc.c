@@ -202,7 +202,7 @@ void RB_CalcDeformVertexes(deformStage_t *ds)
 		}
 		ds->deformationWave.frequency *= -1;
 	}
-	else if (ds->deformationWave.frequency == 0.)
+	else if (ds->deformationWave.frequency == 0.f)
 	{
 		scale = EvalWaveForm(&ds->deformationWave);
 
@@ -287,7 +287,7 @@ void RB_CalcBulgeVertexes(deformStage_t *ds)
 
 	for (i = 0; i < tess.numVertexes; i++, xyz += 4, st += 4, normal += 4)
 	{
-		off   = (FUNCTABLE_SIZE / (M_PI * 2)) * (st[0] * ds->bulgeWidth + now);
+		off   = (FUNCTABLE_SIZE / M_TAU_F) * (st[0] * ds->bulgeWidth + now);
 		scale = tr.sinTable[off & FUNCTABLE_MASK] * ds->bulgeHeight;
 
 		xyz[0] += normal[0] * scale;
@@ -1201,8 +1201,8 @@ void RB_CalcTurbulentTexCoords(const waveForm_t *wf, float *texCoords)
 		s = texCoords[0];
 		t = texCoords[1];
 
-		texCoords[0] = s + tr.sinTable[(( int ) (((tess.xyz[i][0] + tess.xyz[i][2]) * 1.0 / 128 * 0.125 + now) * FUNCTABLE_SIZE)) & (FUNCTABLE_MASK)] * wf->amplitude;
-		texCoords[1] = t + tr.sinTable[(( int ) ((tess.xyz[i][1] * 1.0 / 128 * 0.125 + now) * FUNCTABLE_SIZE)) & (FUNCTABLE_MASK)] * wf->amplitude;
+		texCoords[0] = s + tr.sinTable[(( int64_t ) (((tess.xyz[i][0] + tess.xyz[i][2]) * 1.0 / 128 * 0.125 + now) * FUNCTABLE_SIZE)) & (FUNCTABLE_MASK)] * wf->amplitude;
+		texCoords[1] = t + tr.sinTable[(( int64_t ) ((tess.xyz[i][1] * 1.0 / 128 * 0.125 + now) * FUNCTABLE_SIZE)) & (FUNCTABLE_MASK)] * wf->amplitude;
 	}
 }
 

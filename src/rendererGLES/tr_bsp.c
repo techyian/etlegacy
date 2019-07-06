@@ -29,7 +29,7 @@
  * id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
  */
 /**
- * @file rendererGLES//tr_bsp.c
+ * @file rendererGLES/tr_bsp.c
  * @brief Loads and prepares a map file for scene rendering.
  *
  * A single entry point: void RE_LoadWorldMap( const char *name );
@@ -217,7 +217,7 @@ static void R_LoadLightmaps(lump_t *l)
 	byte         *buf;
 	unsigned int len;
 	byte         image[LIGHTMAP_SIZE * LIGHTMAP_SIZE * 4];
-	int          i //, j;
+	int          i; //, j;
 	float        intensity, maxIntensity = 0;
 
 	// clear lightmaps first
@@ -282,7 +282,7 @@ static void R_LoadVisibility(lump_t *l)
 	byte *buf;
 
 	len = PAD(s_worldData.numClusters, 64);
-	
+
 	s_worldData.novis = ri.Hunk_Alloc(len, h_low);
 	Com_Memset(s_worldData.novis, 0xff, len);
 
@@ -2384,8 +2384,6 @@ static void R_LoadFogs(lump_t *l, lump_t *brushesLump, lump_t *sidesLump)
 
 		// get information from the shader for fog parameters
 		shader = R_FindShader(fogs->shader, LIGHTMAP_NONE, qtrue);
-
-		out->parms = shader->fogParms;
 
 		// colorInt is now set in the shader so we can modify it
 		out->shader = shader;

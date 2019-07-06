@@ -29,7 +29,7 @@
  * id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
  */
 /**
- * @file rendererGLES/tr_local.h
+ * @file renderer/tr_local.h
  */
 
 #ifndef TR_LOCAL_H
@@ -43,18 +43,14 @@
 #include "../renderercommon/qgl.h"
 
 #include "GLES/glext.h"
-#ifndef GL_RGBA4
 #define GL_RGBA4                0x8056
-#endif
-#ifndef GL_RGB5
 #define GL_RGB5                 0x8050
-#endif
 #define GL_INDEX_TYPE       GL_UNSIGNED_SHORT
 typedef unsigned short glIndex_t;
 
 // 14 bits
 // can't be increased without changing bit packing for drawsurfs
-// see QSORT_SHADERNUM_SHIFT
+//// see QSORT_SHADERNUM_SHIFT
 #define SHADERNUM_BITS          14
 #define MAX_SHADERS             (1 << SHADERNUM_BITS)
 
@@ -641,7 +637,7 @@ typedef struct
  * enforce the maximum limit when reading skin files. It was possile to use more than 32
  * surfaces which accessed out of bounds memory past end of skin->surfaces hunk block.
  */
-#define MAX_SKIN_SURFACES   256
+#define MAX_SKIN_SURFACES	256
 
 /**
  * @struct trRefdef_t
@@ -693,7 +689,6 @@ typedef struct
 	vec3_t bounds[2];
 
 	shader_t *shader;               ///< fog shader to get colorInt and tcScale from
-	fogParms_t parms;
 
 	// for clipping distance in fog when outside
 	qboolean hasSurface;
@@ -1649,15 +1644,15 @@ typedef struct
  */
 typedef struct shaderCommands_s
 {
-	glIndex_t indexes[SHADER_MAX_INDEXES];
-	vec4_t normal[SHADER_MAX_INDEXES];
-	color4ub_t vertexColors[SHADER_MAX_INDEXES];
-	vec4_t xyz[SHADER_MAX_INDEXES];
-	vec2_t texCoords[SHADER_MAX_INDEXES][2];
+	glIndex_t indexes[SHADER_MAX_INDEXES] QALIGN(16);
+	vec4_t normal[SHADER_MAX_INDEXES] QALIGN(16);
+	color4ub_t vertexColors[SHADER_MAX_INDEXES] QALIGN(16);
+	vec4_t xyz[SHADER_MAX_INDEXES] QALIGN(16);
+	vec2_t texCoords[SHADER_MAX_INDEXES][2] QALIGN(16);
 
-	stageVars_t svars;
+	stageVars_t svars QALIGN(16);
 
-	color4ub_t constantColor255[SHADER_MAX_VERTEXES];
+	color4ub_t constantColor255[SHADER_MAX_VERTEXES] QALIGN(16);
 
 	shader_t *shader;
 	double shaderTime;
@@ -1886,7 +1881,7 @@ RENDERER BACK END COMMAND QUEUE
 =============================================================
 */
 
-#define MAX_RENDER_COMMANDS 0x40000
+#define MAX_RENDER_COMMANDS (0x40000 * 2)
 
 /**
  * @struct renderCommandList_t
@@ -2224,7 +2219,7 @@ void R_AddMDCSurfaces(trRefEntity_t *ent);
 
 //------------------------------------------------------------------------------
 
-void R_LatLongToNormal(vec3_t outNormal, short latLong);
+//void R_LatLongToNormal(vec3_t outNormal, short latLong);
 
 /*
  * GL FOG
@@ -2232,6 +2227,8 @@ void R_LatLongToNormal(vec3_t outNormal, short latLong);
 
 extern glfog_t     glfogsettings[NUM_FOGS];     ///< [0] never used (FOG_NONE)
 extern glfogType_t glfogNum;                    ///< fog type to use (from the fog_t enum list)
+
+//extern qboolean fogIsOn;
 
 extern void R_FogOff(void);
 extern void R_FogOn(void);
@@ -2268,9 +2265,7 @@ extern cvar_t *r_extMaxAnisotropy;      ///< FIXME: not used in GLES ! move it ?
 
 extern cvar_t *r_lightMap;              ///< render lightmaps only
 
-extern cvar_t *r_showTris;              ///< enables wireframe rendering of the world
 extern cvar_t *r_trisColor;             ///< enables modifying of the wireframe colour (in 0xRRGGBB[AA] format, alpha defaults to FF)
-extern cvar_t *r_showSky;               ///< forces sky in front of all surfaces
 extern cvar_t *r_showNormals;           ///< draws wireframe normals
 extern cvar_t *r_normalLength;          ///< length of the normals
 //extern cvar_t *r_showmodelbounds;		///< see RB_MDM_SurfaceAnim()

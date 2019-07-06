@@ -75,14 +75,14 @@ void GL_Bind(image_t *image)
 
 	if (glState.currenttextures[glState.currenttmu] != texnum)
 	{
-		if (image)
-		{
-			image->frameUsed = tr.frameCount;
-		}
+        if (image)
+        {
+            image->frameUsed = tr.frameCount;
+        }
 
-		glState.currenttextures[glState.currenttmu] = texnum;
-		qglBindTexture(GL_TEXTURE_2D, texnum);
-	}
+        glState.currenttextures[glState.currenttmu] = texnum;
+        qglBindTexture(GL_TEXTURE_2D, texnum);
+    }
 }
 
 /**
@@ -335,19 +335,6 @@ void GL_State(unsigned long stateBits)
 		else
 		{
 			qglDepthMask(GL_FALSE);
-		}
-	}
-
-	// fill/line mode
-	if (diff & GLS_POLYMODE_LINE)
-	{
-		if (stateBits & GLS_POLYMODE_LINE)
-		{
-			qglPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		}
-		else
-		{
-			qglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 	}
 
@@ -805,7 +792,7 @@ void RB_SetGL2D(void)
 	         GLS_SRCBLEND_SRC_ALPHA |
 	         GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA);
 
-	qglDisable(GL_CULL_FACE);
+    GL_Cull(CT_TWO_SIDED);
 	qglDisable(GL_CLIP_PLANE0);
 
 	// set time for 2D shaders
@@ -849,20 +836,17 @@ void RE_StretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *d
 		start = ri.Milliseconds();
 	}
 
-	if (!GL_ARB_texture_non_power_of_two)
-	{
-		// make sure rows and cols are powers of 2
-		for (i = 0; (1 << i) < cols; i++)
-		{
-		}
-		for (j = 0; (1 << j) < rows; j++)
-		{
-		}
-		if ((1 << i) != cols || (1 << j) != rows)
-		{
-			Ren_Drop("Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
-		}
-	}
+    // make sure rows and cols are powers of 2
+    for (i = 0; (1 << i) < cols; i++)
+    {
+    }
+    for (j = 0; (1 << j) < rows; j++)
+    {
+    }
+    if ((1 << i) != cols || (1 << j) != rows)
+    {
+        Ren_Drop("Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
+    }
 
 	GL_Bind(tr.scratchImage[client]);
 
@@ -871,7 +855,8 @@ void RE_StretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *d
 	{
 		tr.scratchImage[client]->width  = tr.scratchImage[client]->uploadWidth = cols;
 		tr.scratchImage[client]->height = tr.scratchImage[client]->uploadHeight = rows;
-		qglTexImage2D(GL_TEXTURE_2D, 0, 3, cols, rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+        qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cols, rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -898,43 +883,47 @@ void RE_StretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *d
 
 	qglColor3f(tr.identityLight, tr.identityLight, tr.identityLight);
 
-	// OpenGLES implementation
-	GLfloat tex[] =
-	{
-		0.5f / cols,          0.5f / rows,
-		(cols - 0.5f) / cols, 0.5f / rows,
-		(cols - 0.5f) / cols, (rows - 0.5f) / rows,
-		0.5f / cols,          (rows - 0.5f) / rows
-	};
-	GLfloat vtx[] =
-	{
-		x,     y,
-		x + w, y,
-		x + w, y + h,
-		x,     y + h
-	};
-	GLboolean text  = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
-	GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
-	if (glcol)
-	{
-		qglDisableClientState(GL_COLOR_ARRAY);
-	}
-	if (!text)
-	{
-		qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-	qglEnableClientState(GL_VERTEX_ARRAY);
-	qglTexCoordPointer(2, GL_FLOAT, 0, tex);
-	qglVertexPointer(2, GL_FLOAT, 0, vtx);
-	qglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	if (glcol)
-	{
-		qglEnableClientState(GL_COLOR_ARRAY);
-	}
-	if (!text)
-	{
-		qglDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
+    GLfloat tex[] =
+    {
+        0.5f / cols,  0.5f / rows,
+        ( cols - 0.5f ) / cols ,  0.5f / rows,
+        ( cols - 0.5f ) / cols, ( rows - 0.5f ) / rows,
+        0.5f / cols, ( rows - 0.5f ) / rows
+    };
+    GLfloat vtx[] =
+    {
+        x, y,
+        x + w, y,
+        x + w, y + h,
+        x, y + h
+    };
+    GLboolean text = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
+    GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
+
+    if (glcol)
+    {
+        qglDisableClientState(GL_COLOR_ARRAY);
+    }
+
+    if (!text)
+    {
+        qglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+    }
+
+	qglEnableClientState(GL_VERTEX_ARRAY);								   
+    qglTexCoordPointer( 2, GL_FLOAT, 0, tex );
+    qglVertexPointer  ( 2, GL_FLOAT, 0, vtx );
+    qglDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
+
+    if (!text)
+    {
+        qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+    }
+
+    if (glcol)
+    {
+        qglEnableClientState(GL_COLOR_ARRAY);
+    }
 }
 
 /**
@@ -957,7 +946,8 @@ void RE_UploadCinematic(int w, int h, int cols, int rows, const byte *data, int 
 	{
 		tr.scratchImage[client]->width  = tr.scratchImage[client]->uploadWidth = cols;
 		tr.scratchImage[client]->height = tr.scratchImage[client]->uploadHeight = rows;
-		qglTexImage2D(GL_TEXTURE_2D, 0, 3, cols, rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+        qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cols, rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1135,7 +1125,6 @@ const void *RB_RotatedPic(const void *data)
 	shader_t                  *shader;
 	int                       numVerts, numIndexes;
 	float                     angle;
-	float                     pi2 = M_PI * 2;
 
 	if (!backEnd.projection2D)
 	{
@@ -1172,7 +1161,7 @@ const void *RB_RotatedPic(const void *data)
 	        *( int * ) tess.vertexColors[numVerts + 2]     =
 	            *( int * ) tess.vertexColors[numVerts + 3] = *( int * ) backEnd.color2D;
 
-	angle                 = cmd->angle * pi2;
+	angle                 = cmd->angle * M_TAU_F;
 	tess.xyz[numVerts][0] = cmd->x + (cos(angle) * cmd->w);
 	tess.xyz[numVerts][1] = cmd->y + (sin(angle) * cmd->h);
 	tess.xyz[numVerts][2] = 0;
@@ -1180,7 +1169,7 @@ const void *RB_RotatedPic(const void *data)
 	tess.texCoords[numVerts][0][0] = cmd->s1;
 	tess.texCoords[numVerts][0][1] = cmd->t1;
 
-	angle                     = cmd->angle * pi2 + 0.25 * pi2;
+	angle                     = cmd->angle * M_TAU_F + 0.25 * M_TAU_F;
 	tess.xyz[numVerts + 1][0] = cmd->x + (cos(angle) * cmd->w);
 	tess.xyz[numVerts + 1][1] = cmd->y + (sin(angle) * cmd->h);
 	tess.xyz[numVerts + 1][2] = 0;
@@ -1188,7 +1177,7 @@ const void *RB_RotatedPic(const void *data)
 	tess.texCoords[numVerts + 1][0][0] = cmd->s2;
 	tess.texCoords[numVerts + 1][0][1] = cmd->t1;
 
-	angle                     = cmd->angle * pi2 + 0.50 * pi2;
+	angle                     = cmd->angle * M_TAU_F + 0.50 * M_TAU_F;
 	tess.xyz[numVerts + 2][0] = cmd->x + (cos(angle) * cmd->w);
 	tess.xyz[numVerts + 2][1] = cmd->y + (sin(angle) * cmd->h);
 	tess.xyz[numVerts + 2][2] = 0;
@@ -1196,7 +1185,7 @@ const void *RB_RotatedPic(const void *data)
 	tess.texCoords[numVerts + 2][0][0] = cmd->s2;
 	tess.texCoords[numVerts + 2][0][1] = cmd->t2;
 
-	angle                     = cmd->angle * pi2 + 0.75 * pi2;
+	angle                     = cmd->angle * M_TAU_F + 0.75 * M_TAU_F;
 	tess.xyz[numVerts + 3][0] = cmd->x + (cos(angle) * cmd->w);
 	tess.xyz[numVerts + 3][1] = cmd->y + (sin(angle) * cmd->h);
 	tess.xyz[numVerts + 3][2] = 0;
@@ -1319,8 +1308,6 @@ const void *RB_DrawBuffer(const void *data)
 {
 	const drawBufferCommand_t *cmd = ( const drawBufferCommand_t * ) data;
 
-	qglDrawBuffer(cmd->buffer);
-
 	// clear screen for debugging
 	if (r_clear->integer)
 	{
@@ -1330,8 +1317,6 @@ const void *RB_DrawBuffer(const void *data)
 
 	return ( const void * ) (cmd + 1);
 }
-
-
 
 /**
  * @brief Draw all the images to the screen, on top of whatever
@@ -1356,17 +1341,17 @@ void RB_ShowImages(void)
 	qglFinish();
 
 	start = ri.Milliseconds();
-	// OpenGLES Implementation
-	GLboolean text  = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
-	GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
-	if (glcol)
-	{
-		qglDisableClientState(GL_COLOR_ARRAY);
-	}
-	if (!text)
-	{
-		qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
+
+    GLboolean text  = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
+    GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
+    if (glcol)
+    {
+        qglDisableClientState(GL_COLOR_ARRAY);
+    }
+    if (!text)
+    {
+        qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
 
 	for (i = 0 ; i < tr.numImages ; i++)
 	{
@@ -1385,7 +1370,7 @@ void RB_ShowImages(void)
 			h *= image->uploadHeight / 512.0f;
 		}
 
-		// OpenGLES Implementation
+        // OpenGLES Implementation		
 		GLfloat tex[] =
 		{
 			0, 0,
@@ -1400,10 +1385,10 @@ void RB_ShowImages(void)
 			x + w, y + h,
 			x,     y + h
 		};
+
 		qglTexCoordPointer(2, GL_FLOAT, 0, tex);
 		qglVertexPointer(2, GL_FLOAT, 0, vtx);
 		qglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
 	}
 
 	if (glcol)
@@ -1413,7 +1398,6 @@ void RB_ShowImages(void)
 	if (!text)
 	{
 		qglDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	}
 
 	qglFinish();
@@ -1435,62 +1419,40 @@ void RB_DrawBounds(vec3_t mins, vec3_t maxs)
     GL_Bind(tr.whiteImage);
     GL_State(GLS_POLYMODE_LINE);
 
-    // OpenGLES Implementation
     // box corners
-    GLboolean text  = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
-    GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
-    if (glcol)
-    {
-        qglDisableClientState(GL_COLOR_ARRAY);
-    }
-    if (text)
-    {
-        qglDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    }
-    GLfloat vtx1[] =
-    {
-        mins[0], mins[1], mins[2],
-        maxs[0], mins[1], mins[2],
-        mins[0], mins[1], mins[2],
-        mins[0], maxs[1], mins[2],
-        mins[0], mins[1], mins[2],
-        mins[0], mins[1], maxs[2],
-        maxs[0], maxs[1], maxs[2],
-        mins[0], maxs[1], maxs[2],
-        maxs[0], maxs[1], maxs[2],
-        maxs[0], mins[1], maxs[2],
-        maxs[0], maxs[1], maxs[2],
-        maxs[0], maxs[1], mins[2]
-    };
+    qglBegin(GL_LINES);
     qglColor3f(1, 1, 1);
-    qglVertexPointer(3, GL_FLOAT, 0, vtx1);
-    qglDrawArrays(GL_LINES, 0, 12);
+
+    qglVertex3f(mins[0], mins[1], mins[2]);
+    qglVertex3f(maxs[0], mins[1], mins[2]);
+    qglVertex3f(mins[0], mins[1], mins[2]);
+    qglVertex3f(mins[0], maxs[1], mins[2]);
+    qglVertex3f(mins[0], mins[1], mins[2]);
+    qglVertex3f(mins[0], mins[1], maxs[2]);
+
+    qglVertex3f(maxs[0], maxs[1], maxs[2]);
+    qglVertex3f(mins[0], maxs[1], maxs[2]);
+    qglVertex3f(maxs[0], maxs[1], maxs[2]);
+    qglVertex3f(maxs[0], mins[1], maxs[2]);
+    qglVertex3f(maxs[0], maxs[1], maxs[2]);
+    qglVertex3f(maxs[0], maxs[1], mins[2]);
+    qglEnd();
+
     center[0] = (mins[0] + maxs[0]) * 0.5f;
     center[1] = (mins[1] + maxs[1]) * 0.5f;
     center[2] = (mins[2] + maxs[2]) * 0.5f;
 
-    // OpenGLES Implementation
     // center axis
-    GLfloat vtx2[] =
-    {
-        mins[0], center[1], center[2],
-        maxs[0], center[1], center[2],
-        center[0], mins[1], center[2],
-        center[0], maxs[1], center[2],
-        center[0], center[1], mins[2],
-        center[0], center[1], maxs[2]
-    };
-    qglColor3f(1, 0.85, 0);
-    qglVertexPointer(3, GL_FLOAT, 0, vtx2);
-    qglDrawArrays(GL_LINES, 0, 6);
-    if (glcol)
-    {
-        qglEnableClientState(GL_COLOR_ARRAY);
-    }
-    if (text)
-    {
-        qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    }
+    qglBegin(GL_LINES);
+    qglColor3f(1, 0.85f, 0);
+
+    qglVertex3f(mins[0], center[1], center[2]);
+    qglVertex3f(maxs[0], center[1], center[2]);
+    qglVertex3f(center[0], mins[1], center[2]);
+    qglVertex3f(center[0], maxs[1], center[2]);
+    qglVertex3f(center[0], center[1], mins[2]);
+    qglVertex3f(center[0], center[1], maxs[2]);
+    qglEnd();
 }
 */
 
@@ -1516,26 +1478,6 @@ const void *RB_SwapBuffers(const void *data)
 	}
 
 	cmd = ( const swapBuffersCommand_t * ) data;
-
-	// we measure overdraw by reading back the stencil buffer and
-	// counting up the number of increments that have happened
-	if (r_measureOverdraw->integer)
-	{
-		int           i;
-		long          sum = 0;
-		unsigned char *stencilReadback;
-
-		stencilReadback = ri.Hunk_AllocateTempMemory(glConfig.vidWidth * glConfig.vidHeight);
-		qglReadPixels(0, 0, glConfig.vidWidth, glConfig.vidHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, stencilReadback);
-
-		for (i = 0; i < glConfig.vidWidth * glConfig.vidHeight; i++)
-		{
-			sum += stencilReadback[i];
-		}
-
-		backEnd.pc.c_overDraw += sum;
-		ri.Hunk_FreeTempMemory(stencilReadback);
-	}
 
 	if (!glState.finishCalled)
 	{
@@ -1565,7 +1507,6 @@ const void *RB_RenderToTexture(const void *data)
 	GL_Bind(cmd->image);
 	qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
 	qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
-	qglTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
 	qglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, cmd->x, cmd->y, cmd->w, cmd->h, 0);
 	//qglCopyTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cmd->x, cmd->y, cmd->w, cmd->h );
 

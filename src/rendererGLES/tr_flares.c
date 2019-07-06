@@ -29,7 +29,7 @@
  * id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
  */
 /**
- * @file rendererGLES/tr_flares.c
+ * @file renderer/tr_flares.c
  * @brief LIGHT FLARES
  *
  * A light flare is an effect that takes place inside the eye when bright light

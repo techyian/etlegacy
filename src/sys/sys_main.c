@@ -61,6 +61,11 @@
 static char binaryPath[MAX_OSPATH]  = { 0 };
 static char installPath[MAX_OSPATH] = { 0 };
 
+#ifdef FEATURE_CURSES
+static qboolean nocurses = qfalse;
+void CON_Init_tty(void);
+#endif
+
 /**
  * @brief Sys_SetBinaryPath
  * @param[in] path
@@ -822,6 +827,10 @@ void *Sys_LoadGameDll(const char *name, qboolean extract,
  */
 void Sys_ParseArgs(int argc, char **argv)
 {
+#ifdef FEATURE_CURSES
+	int i;
+#endif
+
 	if (argc == 2)
 	{
 		if (!strcmp(argv[1], "--version") ||
@@ -837,6 +846,17 @@ void Sys_ParseArgs(int argc, char **argv)
 			Sys_Exit(0);
 		}
 	}
+#ifdef FEATURE_CURSES
+	for (i = 1; i < argc; i++)
+	{
+		if (!strcmp(argv[i], "+nocurses") ||
+		    !strcmp(argv[i], "--nocurses"))
+		{
+			nocurses = qtrue;
+			break;
+		}
+	}
+#endif
 }
 
 /**
@@ -918,7 +938,18 @@ void Sys_SigHandler(int signal)
 void Sys_SetUpConsoleAndSignals(void)
 {
 #ifndef USE_WINDOWS_CONSOLE
+#ifdef FEATURE_CURSES
+	if (nocurses)
+	{
+		CON_Init_tty();
+	}
+	else
+	{
+		CON_Init();
+	}
+#else
 	CON_Init();
+#endif
 #endif
 
 	signal(SIGILL, Sys_SigHandler);

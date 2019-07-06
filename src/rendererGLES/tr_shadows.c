@@ -52,11 +52,12 @@ typedef struct
 
 #define MAX_EDGE_DEFS   32
 
-static edgeDef_t      edgeDefs[SHADER_MAX_VERTEXES][MAX_EDGE_DEFS];
-static int            numEdgeDefs[SHADER_MAX_VERTEXES];
-static int            facing[SHADER_MAX_INDEXES / 3];
+static edgeDef_t edgeDefs[SHADER_MAX_VERTEXES][MAX_EDGE_DEFS];
+static int       numEdgeDefs[SHADER_MAX_VERTEXES];
+static int       facing[SHADER_MAX_INDEXES / 3];
+
 static unsigned short indexes[6 * MAX_EDGE_DEFS * SHADER_MAX_VERTEXES];
-static int            idx = 0;
+static int idx = 0;
 
 /**
  * @brief R_AddEdgeDef
@@ -90,6 +91,8 @@ void R_RenderShadowEdges(void)
 	// int c_edges = 0, c_rejected = 0;  // TODO: remove ?
 	int hit[2];
 
+    idx = 0;
+
 	// an edge is NOT a silhouette edge if its face doesn't face the light,
 	// or if it has a reverse paired edge that also faces the light.
 	// A well behaved polyhedron would have exactly two faces for each edge,
@@ -122,15 +125,12 @@ void R_RenderShadowEdges(void)
 			// triangle, it is a sil edge
 			if (hit[1] == 0)
 			{
-				// OpenGLES implementation 
-				// A single drawing call is better than many. So I prefer a singe TRIANGLES call than many TRAINGLE_STRIP call
-				// even if it seems less efficiant, it's faster on the PANDORA
-				indexes[idx++] = i;
+                indexes[idx++] = i;
 				indexes[idx++] = i + tess.numVertexes;
 				indexes[idx++] = i2;
 				indexes[idx++] = i2;
 				indexes[idx++] = i + tess.numVertexes;
-				indexes[idx++] = i2 + tess.numVertexes;
+                indexes[idx++] = i2 + tess.numVertexes;
 				// c_edges++;
 			}
 			/*
@@ -141,7 +141,8 @@ void R_RenderShadowEdges(void)
 			*/
 		}
 	}
-	qglDrawElements(GL_TRIANGLES, idx, GL_UNSIGNED_SHORT, indexes);
+
+    qglDrawElements(GL_TRIANGLES, idx, GL_UNSIGNED_SHORT, indexes);
 }
 
 /**
@@ -294,34 +295,37 @@ void RB_ShadowFinish(void)
 	qglColor3f(0.6f, 0.6f, 0.6f);
 	GL_State(GLS_DEPTHMASK_TRUE | GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ZERO);
 
-	// OpenGLES implementation 
-	GLboolean text  = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
-	GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
-	if (text)
-	{
-		qglDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-	if (glcol)
-	{
-		qglDisableClientState(GL_COLOR_ARRAY);
-	}
-	GLfloat vtx[] =
-	{
-		-100, 100,  -10,
-		100,  100,  -10,
-		100,  -100, -10,
-		-100, -100, -10
-	};
-	qglVertexPointer(3, GL_FLOAT, 0, vtx);
-	qglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	if (text)
-	{
-		qglEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-	if (glcol)
-	{
-		qglEnableClientState(GL_COLOR_ARRAY);
-	}
+    GLboolean text = qglIsEnabled(GL_TEXTURE_COORD_ARRAY);
+    GLboolean glcol = qglIsEnabled(GL_COLOR_ARRAY);
+
+    if (text)
+    {
+        qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+    }
+
+    if (glcol)
+    {
+        qglDisableClientState( GL_COLOR_ARRAY );
+    }
+
+    GLfloat vtx[] = {
+            -100,  100, -10,
+            100,  100, -10,
+            100, -100, -10,
+            -100, -100, -10
+    };
+    qglVertexPointer  ( 3, GL_FLOAT, 0, vtx );
+    qglDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
+
+    if (text)
+    {
+        qglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+    }
+
+    if (glcol)
+    {
+        qglEnableClientState( GL_COLOR_ARRAY );
+    }
 
 	qglColor4f(1, 1, 1, 1);
 	qglDisable(GL_STENCIL_TEST);

@@ -29,7 +29,7 @@
  * id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
  */
 /**
- * @file rendererGLES/tr_model.c
+ * @file renderer/tr_model.c
  * @brief Model loading and caching
  */
 
@@ -1873,6 +1873,7 @@ void R_ModelInit(void)
 	{
 		Ren_Drop("R_ModelInit: R_AllocModel failed");
 	}
+
 	// load in the cacheModels
 	R_LoadCacheModels();
 }
@@ -2295,7 +2296,7 @@ void *R_Hunk_Alloc(int size)
 	//Ren_Print("R_Hunk_Alloc(%d)\n", size);
 
 	// round to cacheline
-	size = (size + 31) & ~31;
+	size = PAD(size,32);
 
 #ifdef _WIN32
 

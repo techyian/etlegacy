@@ -256,7 +256,7 @@ void GL_CheckErrors(void)
 		break;
 	}
 
-	ri.Error(ERR_VID_FATAL, "GL_CheckErrors: %s", s);
+    ri.Error(ERR_VID_FATAL, "GL_CheckErrors: %s", s);
 }
 
 /*
@@ -267,9 +267,9 @@ void GL_CheckErrors(void)
  * NOTE: some thoughts about the screenshots system:
  * screenshots get written in fs_homepath + fs_gamedir
  * vanilla W:ET .. etmain/screenshots/<FILE>.tga
- * ET: Legacy   .. legacy/screenshots/<FILE>.tga
+ * ET: Legacy   .. legacy/screenshots/<FILE>.jpg
  *
- * one commands: "screenshot"
+ * one command: "screenshot"
  * we use statics to store a count and start writing the first screenshot/screenshot????.jpg available
  * (with FS_FileExists / FS_FOpenFileWrite calls)
  * FIXME: the statics don't get a reinit between fs_game changes
@@ -299,59 +299,52 @@ void GL_CheckErrors(void)
  */
 byte *RB_ReadPixels(int x, int y, int width, int height, size_t *offset, int *padlen)
 {
-	byte  *buffer, *bufstart;
-	int   padwidth, linelen;
-	GLint packAlign;
+    byte  *buffer, *bufstart;
+    int   padwidth, linelen;
+    GLint packAlign;
 
-	qglGetIntegerv(GL_PACK_ALIGNMENT, &packAlign);
+    qglGetIntegerv(GL_PACK_ALIGNMENT, &packAlign);
 
-	linelen  = width * 3;
-	padwidth = PAD(linelen, packAlign);
+    linelen  = width * 3;
+    padwidth = PAD(linelen, packAlign);
 
-	// Allocate a few more bytes so that we can choose an alignment we like
-	buffer = ri.Hunk_AllocateTempMemory(padwidth * height + *offset + packAlign - 1);
+    // Allocate a few more bytes so that we can choose an alignment we like
+    buffer = ri.Hunk_AllocateTempMemory(padwidth * height + *offset + packAlign - 1);
 
-	bufstart = PADP(( intptr_t ) buffer + *offset, packAlign);
-	qglReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, bufstart);
+    bufstart=buffer;
+	padwidth=linelen;
+	int p2width=1, p2height=1;
+	int xx, yy, aa;
 
-	*offset = bufstart - buffer;
-	*padlen = padwidth - linelen;
+	while (p2width<glConfig.vidWidth)
+	{
+	    p2width*=2;
+	}
 
-	return buffer;
-}
+	while (p2height<glConfig.vidHeight)
+	{
+	  p2height*=2;
+	}
 
-/**
- * @brief RB_ReadZBuffer
- * @param[in] x
- * @param[in] y
- * @param[in] width
- * @param[in,out] height
- * @param[in,out] padlen
- * @return
- *
- * @note Unused
- */
-byte *RB_ReadZBuffer(int x, int y, int width, int height, int *padlen)
-{
-	byte  *buffer, *bufstart;
-	int   padwidth, linelen;
-	GLint packAlign;
+	byte *source = (byte*) ri.Z_Malloc( p2width * p2height * 4 );
+	qglReadPixels( 0, 0, p2width, p2height, GL_RGBA, GL_UNSIGNED_BYTE, source );
 
-	qglGetIntegerv(GL_PACK_ALIGNMENT, &packAlign);
+	for (yy=y; yy<height; yy++)
+	{
+	    for (xx=x; xx<width; xx++)
+	    {
+	        for (aa=0; aa<3; aa++)
+	        {
+	            buffer[yy*width*3+xx*3+aa]=source[(yy+y)*p2width*4+(xx+x)*4+aa];
+	        }
+	    }
+	}
+	ri.Free(source);
 
-	linelen  = width;
-	padwidth = PAD(linelen, packAlign);
+    *offset = bufstart - buffer;
+    *padlen = padwidth - linelen;
 
-	// Allocate a few more bytes so that we can choose an alignment we like
-	buffer = ri.Hunk_AllocateTempMemory(padwidth * height + packAlign - 1);
-
-	bufstart = PADP(( intptr_t ) buffer, packAlign);
-	qglDepthRange(0.0f, 1.0f);
-	qglReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, bufstart);
-
-	*padlen = padwidth - linelen;
-
-	return buffer;
+    return buffer;
 }
 
 /*
@@ -537,7 +530,7 @@ const void *RB_TakeScreenshotCmd(const void *data)
  * @param[in] width
  * @param[in] height
  * @param[in] name
- * @param[in] jpeg
+ * @param[in] format
  */
 void R_TakeScreenshot(int x, int y, int width, int height, const char *name, ssFormat_t format)
 {
@@ -873,12 +866,15 @@ void GL_SetDefaultState(void)
 	// make sure our GL state vector is set correctly
 	glState.glStateBits = GLS_DEPTHTEST_DISABLE | GLS_DEPTHMASK_TRUE;
 
-	qglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    qglPixelStorei(GL_PACK_ALIGNMENT, 1);
+	qglPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 	qglDepthMask(GL_TRUE);
 	qglDisable(GL_DEPTH_TEST);
 	qglEnable(GL_SCISSOR_TEST);
 	qglDisable(GL_CULL_FACE);
 	qglDisable(GL_BLEND);
+    GL_CheckErrors();
 }
 
 /**
@@ -896,6 +892,10 @@ void GfxInfo_f(void)
 		"windowed",
 		"fullscreen"
 	};
+
+	Ren_Print("GL_VENDOR: %s\n", glConfig.vendor_string);
+	Ren_Print("GL_RENDERER: %s\n", glConfig.renderer_string);
+	Ren_Print("GL_VERSION: %s\n", glConfig.version_string);
 
 	// FIXME: implicit declaration
 	//Ren_Print("SDL using driver \"%s\"\n", SDL_GetCurrentVideoDriver());
@@ -931,45 +931,13 @@ void GfxInfo_f(void)
 
 	// rendering primitives
 	{
-		int primitives;
-
-		// default is to use triangles if compiled vertex arrays are present
-		Ren_Print("rendering primitives: ");
-		primitives = r_primitives->integer;
-		if (primitives == 0)
-		{
-			if (qglLockArraysEXT)
-			{
-				primitives = 2;
-			}
-			else
-			{
-				primitives = 1;
-			}
-		}
-		if (primitives == -1)
-		{
-			Ren_Print("none\n");
-		}
-		else if (primitives == 2)
-		{
-			Ren_Print("single glDrawElements\n");
-		}
-		else if (primitives == 1)
-		{
-			Ren_Print("multiple glArrayElement\n");
-		}
-		else if (primitives == 3)
-		{
-			Ren_Print("multiple glColor4ubv + glTexCoord2fv + glVertex3fv\n");
-		}
-	}
-
+        Ren_Print("rendering primitives: ");
+        Ren_Print("single glDrawElements\n");
+    }
 	Ren_Print("texturemode: %s\n", r_textureMode->string);
 	Ren_Print("picmip: %d\n", r_picMip->integer);
 	Ren_Print("texture bits: %d\n", r_textureBits->integer);
 	Ren_Print("multitexture: %s\n", enablestrings[qglActiveTextureARB != 0]);
-	Ren_Print("compiled vertex arrays: %s\n", enablestrings[qglLockArraysEXT != 0]);
 	Ren_Print("texenv add: %s\n", enablestrings[glConfig.textureEnvAddAvailable != 0]);
 	Ren_Print("compressed textures: %s\n", enablestrings[glConfig.textureCompression != TC_NONE]);
 
