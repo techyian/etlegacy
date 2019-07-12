@@ -8,10 +8,12 @@
 #
 
 if(EXISTS "/opt/vc/include/bcm_host.h")
-    # Look for RPi 4 processor model BCM2835
+
     find_path(GLES_INCLUDE_DIR NAMES GLES/gl.h PATHS "/opt/vc/include/")
-    file(READ "/proc/cpuinfo" CPUINFO)
-    string(FIND "${CPUINFO}" "BCM2835" result)
+
+    # Look for RPi 4
+    file(READ "/proc/device-tree/model" PIINFO)
+    string(FIND "${PIINFO}" "Raspberry Pi 4 Model B" result)
 
     if(${result} EQUAL -1)
         find_library(GLES_LIBRARY NAMES brcmGLESv2 PATHS "/opt/vc/lib/")
